@@ -1,18 +1,23 @@
-from Mesh_generator.plot_mesh import plot_mesh
-from Mesh_generator.read_data import read_data_csv
-from Mesh_generator.square_mesh_generator import generate_square_mesh
-from Matlab_to_python.Matlab_mesh_to_python import Matlab_to_python
+from Mesh.plot_mesh import plot_mesh
+from Manage_data.read_data import read_data_csv
+from Grid.grid import Grid
 
 if __name__ == '__main__':
     project_directory = "Numerics-final-project/"
     matlab_mesh_path = f"{project_directory}Mesh_data/Matlab_mesh/"
     no_hole_mesh_path = f"{project_directory}Mesh_data/Square_no_hole_mesh/"
     hole_mesh_path = f"{project_directory}Mesh_data/Triangle_hole_mesh/"
+    no_hole_edges_path = f"{no_hole_mesh_path}Edges.csv"
+    no_hole_cells_path = f"{no_hole_mesh_path}Cells.csv"
+    no_hole_points_path = f"{no_hole_mesh_path}Points.csv"
+    hole_edges_path = f"{hole_mesh_path}Edges.csv"
+    hole_cells_path = f"{hole_mesh_path}Cells.csv"
+    hole_points_path = f"{hole_mesh_path}Points.csv"
 
     # matlab_edges_path = f'{matlab_mesh_path}EdgeTable10.csv'
     # matlab_cells_path = f'{matlab_mesh_path}TriTable.csv'
     # matlab_points_path = f'{matlab_mesh_path}p.csv'
-    # points, edges, triangles = Matlab_to_python(matlab_points_path,
+    # points, edges, triangles = Manage_data(matlab_points_path,
     #                                             matlab_edges_path,
     #                                             matlab_cells_path,
     #                                             out_dir=hole_mesh_path)
@@ -23,10 +28,13 @@ if __name__ == '__main__':
     #                      out_dir=no_hole_mesh_path)
 
 
-    edges_path = f"{hole_mesh_path}Edges.csv"
-    cells_path = f"{hole_mesh_path}Cells.csv"
-    points_path = f"{hole_mesh_path}Points.csv"
-    points_df, edges_df, cells_df = read_data_csv(points_path, edges_path, cells_path)
+
+    points_df, edges_df, cells_df = read_data_csv(no_hole_edges_path, no_hole_cells_path, no_hole_points_path)
     plot_mesh(points_df, edges_df)
+
+    points = points_df[["x", "y"]].to_numpy()
+    edges = edges_df[["start", "end"]].to_numpy(dtype=int)
+
+    grid = Grid(points, edges, cells_df)
 
     p = 1
