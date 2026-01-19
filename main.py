@@ -4,7 +4,8 @@ from Manage_data.matlab_mesh_to_python import matlab_mesh_to_python
 from Mesh.square_mesh_generator import generate_square_mesh
 
 if __name__ == '__main__':
-    project_directory = "Numerics-final-project/"
+    # project_directory = "Numerics-final-project/"
+    project_directory = ""
 
     matlab_mesh_path = f"{project_directory}Mesh_data/Matlab_mesh/"
     no_hole_mesh_path = f"{project_directory}Mesh_data/Square_no_hole_mesh/"
@@ -27,6 +28,12 @@ if __name__ == '__main__':
     no_hole_edges = no_hole_edges_df.to_dict('records')
     no_hole_cells = no_hole_cells_df.to_dict('records')
 
-    plot_mesh(no_hole_points, no_hole_edges)
+    hole_points_df, hole_edges_df, hole_cells_df =\
+        read_data_csv(hole_points_path, hole_edges_path, hole_cells_path)
+    hole_points = hole_points_df.to_dict('records')
+    hole_edges = hole_edges_df.to_dict('records')
+    hole_cells = hole_cells_df.to_dict('records')
+
+    plot_mesh(hole_points, hole_edges)
 
     p = 1
