@@ -2,25 +2,16 @@ import numpy as np
 import pandas as pd
 
 
-def generate_square_mesh(N, M, X, Y, out_dir="Mesh_data/Part1"):
+def generate_square_mesh(x_nodes, y_nodes, x_span, y_span, out_dir):
     """
     Generate a structured rectangular mesh for PDE solvers.
-
-    Parameters
-    ----------
-    N, M : int
-        Number of points in x and y directions
-    X, Y : float
-        Domain size
-    out_dir : str
-        Directory to save CSV files
     """
 
     # -------------------------
     # Generate points
     # -------------------------
-    xs = np.linspace(0, X, N)
-    ys = np.linspace(0, Y, M)
+    xs = np.linspace(x_span[0], x_span[1], x_nodes)
+    ys = np.linspace(y_span[0], y_span[1], y_nodes)
 
     points = []
     pid = 0
@@ -41,8 +32,8 @@ def generate_square_mesh(N, M, X, Y, out_dir="Mesh_data/Part1"):
     cid = 0
     cell_id = {}
 
-    for j in range(M - 1):
-        for i in range(N - 1):
+    for j in range(y_nodes - 1):
+        for i in range(x_nodes - 1):
             p1 = point_id[(i, j)]
             p2 = point_id[(i + 1, j)]
             p3 = point_id[(i + 1, j + 1)]
@@ -77,8 +68,8 @@ def generate_square_mesh(N, M, X, Y, out_dir="Mesh_data/Part1"):
             idx = edge_map[key]
             edges[idx][4] = c_left  # fill cellR
 
-    for j in range(M - 1):
-        for i in range(N - 1):
+    for j in range(y_nodes - 1):
+        for i in range(x_nodes - 1):
             c = cell_id[(i, j)]
 
             p1 = point_id[(i, j)]
