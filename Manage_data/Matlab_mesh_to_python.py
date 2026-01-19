@@ -11,7 +11,7 @@ def Matlab_to_python(points_path, edges_path, tri_path, out_dir):
 
     id_columns_tri = ["triID", "v1", "v2", "v3", "nbr12", "nbr23", "nbr31"]
     cells_df = shift_ids_df(cells_df, id_columns_tri)
-    cells_df = cells_df.rename(columns={"triID": "cellID",
+    cells_df = cells_df.rename(columns={"triID": "cellID", "triL": "cellL", "triR": "cellR",
                                         "v1": "p1", "v2": "p2", "v3": "p3"})
 
     points_df.insert(0, "pointsID", [i for i in range(len(points_df))])

@@ -43,7 +43,62 @@ def generate_square_mesh(x_nodes, y_nodes, x_span, y_span, out_dir):
             cell_id[(i, j)] = cid
             cid += 1
 
-    cells_df = pd.DataFrame(cells, columns=["cellID", "p1", "p2", "p3", "p4"])
+    # -------------------------
+    # Generate cell data (extended)
+    # -------------------------
+    extended_cells = []
+    for j in range(y_nodes - 1):
+        for i in range(x_nodes - 1):
+            c = cell_id[(i, j)]
+            p1 = point_id[(i, j)]
+            p2 = point_id[(i + 1, j)]
+            p3 = point_id[(i + 1, j + 1)]
+            p4 = point_id[(i, j + 1)]
+
+            # cell center
+            x1, y1 = points_df.iloc[p1][["x", "y"]]
+            x3, y3 = points_df.iloc[p3][["x", "y"]]
+            cx = (x1 + x3) / 2
+            cy = (y1 + y3) / 2
+
+            # neighbors
+            nbr12 = cell_id.get((i, j - 1), -1)  # below
+            nbr23 = cell_id.get((i + 1, j), -1)  # right
+            nbr34 = cell_id.get((i, j + 1), -1)  # above
+            nbr41 = cell_id.get((i - 1, j), -1)  # left
+
+            # outward normals for square
+            # edge 12: bottom
+            n12x, n12y = 0, -1
+            # edge 23: right
+            n23x, n23y = 1, 0
+            # edge 34: top
+            n34x, n34y = 0, 1
+            # edge 41: left
+            n41x, n41y = -1, 0
+
+            extended_cells.append([
+                c, cx, cy,
+                p1, p2, p3, p4,
+                nbr12, nbr23, nbr34, nbr41,
+                n12x, n12y,
+                n23x, n23y,
+                n34x, n34y,
+                n41x, n41y
+            ])
+
+    cells_df = pd.DataFrame(
+        extended_cells,
+        columns=[
+            "cellID", "cx", "cy",
+            "p1", "p2", "p3", "p4",
+            "nbr12", "nbr23", "nbr34", "nbr41",
+            "n12x", "n12y",
+            "n23x", "n23y",
+            "n34x", "n34y",
+            "n41x", "n41y"
+        ]
+    )
 
     # -------------------------
     # Generate edges
@@ -59,10 +114,14 @@ def generate_square_mesh(x_nodes, y_nodes, x_span, y_span, out_dir):
         if key not in edge_map:
             id, x1, y1 = points_df.iloc[n1]
             id, x2, y2 = points_df.iloc[n2]
+            middle_x = (x1 + x2) / 2
+            middle_y = (y1 + y2) / 2
             length = np.hypot(x2 - x1, y2 - y1)
+            normal_x = np.sign(y2 - y1)
+            normal_y = np.sign(x1 - x2)
 
             edge_map[key] = eid
-            edges.append([eid, n1, n2, c_left, c_right, length])
+            edges.append([eid, n1, n2, c_left, c_right, length, middle_x, middle_y, normal_x, normal_y])
             eid += 1
         else:
             idx = edge_map[key]
@@ -84,7 +143,7 @@ def generate_square_mesh(x_nodes, y_nodes, x_span, y_span, out_dir):
 
     edges_df = pd.DataFrame(
         edges,
-        columns=["edgeID", "n1", "n2", "cellL", "cellR", "length"]
+        columns=["edgeID", "n1", "n2", "cellL", "cellR", "len", "mx", "my", "nLx", "nLy"]
     )
 
     # -------------------------

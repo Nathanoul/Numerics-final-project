@@ -1,30 +1,32 @@
-import pandas as pd
 import matplotlib.pyplot as plt
 
 
-def plot_mesh(points_df, edges_df, show_ids=False):
+def plot_mesh(points_list, edges_list, show_ids=False):
     """
-    Plot 2D mesh using points and edges tables.
+    Plot 2D mesh using points and edges key lists.
 
     Parameters
     ----------
-    points_df : DataFrame
-        Columns: pointID, x, y
-    edges_df : DataFrame
-        Columns: edgeID, n1, n2, ...
+    points_list : list of dict
+        Keys: pointID, x, y
+    edges_list : list of dict
+        Keys: edgeID, n1, n2
     show_ids : bool
         If True, plot point and edge IDs
     """
 
     fig, ax = plt.subplots()
 
+    # Convert points to dict for fast access
+    point_map = {p["pointID"]: (p["x"], p["y"]) for p in points_list}
+
     # Plot edges
-    for _, edge in edges_df.iterrows():
+    for edge in edges_list:
         n1 = int(edge["n1"])
         n2 = int(edge["n2"])
 
-        id, x1, y1 = points_df.iloc[n1]
-        id, x2, y2 = points_df.iloc[n2]
+        x1, y1 = point_map[n1]
+        x2, y2 = point_map[n2]
 
         ax.plot([x1, x2], [y1, y2], "k-", linewidth=1)
 
@@ -34,10 +36,12 @@ def plot_mesh(points_df, edges_df, show_ids=False):
             ax.text(xm, ym, int(edge["edgeID"]), color="blue", fontsize=8)
 
     # Plot points
-    ax.scatter(points_df["x"], points_df["y"], c="red", s=15)
+    xs = [p["x"] for p in points_list]
+    ys = [p["y"] for p in points_list]
+    ax.scatter(xs, ys, c="red", s=15)
 
     if show_ids:
-        for _, p in points_df.iterrows():
+        for p in points_list:
             ax.text(p["x"], p["y"], int(p["pointID"]),
                     color="red", fontsize=8, verticalalignment="bottom")
 
