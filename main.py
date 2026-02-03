@@ -21,7 +21,6 @@ if __name__ == '__main__':
     hole_cells_path = f"{hole_mesh_path}Cells.csv"
     hole_points_path = f"{hole_mesh_path}Points.csv"
 
-
     no_hole_points_df, no_hole_edges_df, no_hole_cells_df =\
         read_data_csv(no_hole_points_path, no_hole_edges_path, no_hole_cells_path)
     no_hole_points = no_hole_points_df.to_dict('records')
