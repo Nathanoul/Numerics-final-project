@@ -5,8 +5,8 @@ def csv_data_to_dic(points_path, edges_path, tri_path):
     edges_df = pd.read_csv(edges_path)
     cells_df = pd.read_csv(tri_path)
 
-    points = points_df.to_dict('records')
-    edges = edges_df.to_dict('records')
-    cells = cells_df.to_dict('records')
+    points = points_df.to_dict('dict')
+    edges = edges_df.to_dict('dict')
+    cells = cells_df.to_dict('dict')
 
     return points, edges, cells
