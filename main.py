@@ -1,5 +1,5 @@
 from Mesh.plot_mesh import plot_mesh
-from Manage_data.read_data import read_data_csv
+from Manage_data.take_data import csv_data_to_list
 from Manage_data.matlab_mesh_to_python import matlab_mesh_to_python
 from Mesh.square_mesh_generator import generate_square_mesh
 
@@ -21,11 +21,8 @@ if __name__ == '__main__':
     hole_points_path = f"{hole_mesh_path}Points.csv"
 
 
-    no_hole_points_df, no_hole_edges_df, no_hole_cells_df =\
-        read_data_csv(no_hole_points_path, no_hole_edges_path, no_hole_cells_path)
-    no_hole_points = no_hole_points_df.to_dict('records')
-    no_hole_edges = no_hole_edges_df.to_dict('records')
-    no_hole_cells = no_hole_cells_df.to_dict('records')
+    no_hole_points, no_hole_edges, no_hole_cells =\
+        csv_data_to_list(no_hole_points_path, no_hole_edges_path, no_hole_cells_path)
 
     plot_mesh(no_hole_points, no_hole_edges)
 
