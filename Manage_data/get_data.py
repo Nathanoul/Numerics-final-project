@@ -1,6 +1,6 @@
 import pandas as pd
 
-def csv_data_to_list(points_path, edges_path, tri_path):
+def csv_data_to_dic(points_path, edges_path, tri_path):
     points_df = pd.read_csv(points_path)
     edges_df = pd.read_csv(edges_path)
     cells_df = pd.read_csv(tri_path)
