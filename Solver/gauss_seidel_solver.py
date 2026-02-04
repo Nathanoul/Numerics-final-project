@@ -28,11 +28,15 @@ def build_matrix_and_rhs_for_line(top_bc, bottom_bc, left_bc, right_bc, k1, k2, 
                 j = line_index
                 k = get_k(i, j, num_x, num_y, k1, k2)
 
-                A[i, i] = -2 * (k / dx ** 2 + k / dy ** 2) + k / dx
+                A[i, i] = -2 * (k / dx ** 2 + k / dy ** 2) + k / dx ** 2
                 A[i, i - 1] = k / dy ** 2
                 A[i, i + 1] = k / dy ** 2
 
-                rhs[i] = -k / dx * next_line[i]
+                if line_index == 1:
+                    flux = -left_bc.get_flux_at_boundary_id(get_id(i - 1, j, num_x))
+                else:
+                    flux = right_bc.get_flux_at_boundary_id(get_id(i + 1, j, num_x))
+                rhs[i] = -k / dx ** 2 * next_line[i] + k / dx * flux
 
         else:
             for i in range(1, num_y - 1):
@@ -43,7 +47,7 @@ def build_matrix_and_rhs_for_line(top_bc, bottom_bc, left_bc, right_bc, k1, k2, 
                 A[i, i - 1] = k / dy ** 2
                 A[i, i + 1] = k / dy ** 2
 
-                rhs[i] = -k / dx * next_line[i] - k / dx * prev_line[i]
+                rhs[i] = -k / dx ** 2 * next_line[i] - k / dx ** 2 * prev_line[i]
 
         if bottom_bc.type == "Dirichlet":
             A[0, 0] = 1
@@ -81,11 +85,15 @@ def build_matrix_and_rhs_for_line(top_bc, bottom_bc, left_bc, right_bc, k1, k2, 
                 i = line_index
                 k = get_k(i, j, num_x, num_y, k1, k2)
 
-                A[j, j] = -2 * (k / dx ** 2 + k / dy ** 2) + k / dy
+                A[j, j] = -2 * (k / dx ** 2 + k / dy ** 2) + k / dy ** 2
                 A[j, j - 1] = k / dx ** 2
                 A[j, j + 1] = k / dx ** 2
 
-                rhs[i] = -k / dy * next_line[i]
+                if line_index == 1:
+                    flux = -bottom_bc.get_flux_at_boundary_id(get_id(i - 1, j, num_x))
+                else:
+                    flux = top_bc.get_flux_at_boundary_id(get_id(i + 1, j, num_x))
+                rhs[j] = -k / dy ** 2 * next_line[j] + k / dy * flux
         else:
             for j in range(1, num_x - 1):
                 i = line_index
@@ -95,7 +103,7 @@ def build_matrix_and_rhs_for_line(top_bc, bottom_bc, left_bc, right_bc, k1, k2, 
                 A[j, j - 1] = k / dx ** 2
                 A[j, j + 1] = k / dx ** 2
 
-                rhs[i] = -k / dy * next_line[i] - k / dy * prev_line[i]
+                rhs[j] = -k / dy ** 2 * next_line[j] - k / dy ** 2 * prev_line[j]
 
         if left_bc.type == "Dirichlet":
             A[0, 0] = 1
@@ -135,7 +143,7 @@ def solve_gauss_seidel(k1, k2, dx, dy, repetitions, direction, **boundary_condit
     num_x = len(bottom_bc.boundary_points_ids)
     num_y = len(right_bc.boundary_points_ids)
 
-    init_guess = np.zeros((num_x, num_y))
+    init_guess = np.zeros((num_y, num_x))
     for bc_name, bc in boundary_condition.items():
         if bc:
             if bc.type == "Dirichlet":

@@ -25,9 +25,11 @@ if __name__ == '__main__':
     hole_points_path = f"{hole_mesh_path}Points.csv"
 
 
+    #generate_square_mesh(200, 200, [- 0.5, 0.5], [- 0.5, 0.5], out_dir=no_hole_mesh_path)
+
+
     no_hole_points, no_hole_edges, no_hole_cells =\
         csv_data_to_dic(no_hole_points_path, no_hole_edges_path, no_hole_cells_path)
-
 
     #plot_mesh(no_hole_points, no_hole_edges)
 
@@ -58,10 +60,11 @@ if __name__ == '__main__':
           "left bc": left_bc,
           "circle bc": None}
 
+
     dx, dy = no_hole_edges["len"][0], no_hole_edges["len"][1]
 
     k1 = 10**-3
     k2 = 100
-    solution = solve_gauss_seidel(k1, k2, dx, dy, repetitions = 3, direction = "xy", **bc)
+    solution = solve_gauss_seidel(k1, k2, dx, dy, repetitions = 200, direction = "x", **bc)
 
     plot_steady_state(no_hole_points, no_hole_edges, solution)
