@@ -91,7 +91,7 @@ def generate_square_mesh(x_nodes, y_nodes, x_span, y_span, out_dir):
         extended_cells,
         columns=[
             "cellID", "cx", "cy",
-            "p1", "p2", "p3", "p4",
+            "n1", "n2", "n3", "n4",
             "nbr12", "nbr23", "nbr34", "nbr41",
             "n12x", "n12y",
             "n23x", "n23y",

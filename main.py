@@ -1,7 +1,10 @@
 from Mesh.plot_mesh import plot_mesh
-from Manage_data.read_data import read_data_csv
+from Manage_data.get_data import csv_data_to_dic
 from Manage_data.matlab_mesh_to_python import matlab_mesh_to_python
 from Mesh.square_mesh_generator import generate_square_mesh
+from Solver.boundary_condtitions import DirichletBC, NeumannBC
+from Solver.gauss_seidel_solver import solve_gauss_seidel
+from Solver.plotter import plot_steady_state
 
 if __name__ == '__main__':
     # project_directory = "Numerics-final-project/"
@@ -21,18 +24,44 @@ if __name__ == '__main__':
     hole_cells_path = f"{hole_mesh_path}Cells.csv"
     hole_points_path = f"{hole_mesh_path}Points.csv"
 
-    no_hole_points_df, no_hole_edges_df, no_hole_cells_df =\
-        read_data_csv(no_hole_points_path, no_hole_edges_path, no_hole_cells_path)
-    no_hole_points = no_hole_points_df.to_dict('records')
-    no_hole_edges = no_hole_edges_df.to_dict('records')
-    no_hole_cells = no_hole_cells_df.to_dict('records')
 
-    hole_points_df, hole_edges_df, hole_cells_df =\
-        read_data_csv(hole_points_path, hole_edges_path, hole_cells_path)
-    hole_points = hole_points_df.to_dict('records')
-    hole_edges = hole_edges_df.to_dict('records')
-    hole_cells = hole_cells_df.to_dict('records')
+    no_hole_points, no_hole_edges, no_hole_cells =\
+        csv_data_to_dic(no_hole_points_path, no_hole_edges_path, no_hole_cells_path)
 
-    plot_mesh(hole_points, hole_edges)
 
-    p = 1
+    #plot_mesh(no_hole_points, no_hole_edges)
+
+    bottom_bc: NeumannBC = NeumannBC(location = "bottom",
+                                         flux_func = lambda x,y: 0,
+                                         points = no_hole_points,
+                                         edges = no_hole_edges,
+                                         cells = no_hole_cells)
+    top_bc: NeumannBC = NeumannBC(location = "top",
+                                         flux_func = lambda x,y: 0,
+                                         points = no_hole_points,
+                                         edges = no_hole_edges,
+                                         cells = no_hole_cells)
+    right_bc: DirichletBC = DirichletBC(location = "right",
+                                         value_func = lambda x,y: 1 - 4 * (y + 0.5)**2,
+                                         points = no_hole_points,
+                                         edges = no_hole_edges,
+                                         cells = no_hole_cells)
+    left_bc: DirichletBC = DirichletBC(location = "left",
+                                         value_func = lambda x,y: 1 - 4 * (y + 0.5)**2,
+                                         points = no_hole_points,
+                                         edges = no_hole_edges,
+                                         cells = no_hole_cells)
+
+    bc = {"bottom bc": bottom_bc,
+          "top bc": top_bc,
+          "right bc": right_bc,
+          "left bc": left_bc,
+          "circle bc": None}
+
+    dx, dy = no_hole_edges["len"][0], no_hole_edges["len"][1]
+
+    k1 = 10**-3
+    k2 = 100
+    solution = solve_gauss_seidel(k1, k2, dx, dy, repetitions = 3, direction = "xy", **bc)
+
+    plot_steady_state(no_hole_points, no_hole_edges, solution)

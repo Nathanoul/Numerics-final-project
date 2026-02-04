@@ -16,7 +16,7 @@ def matlab_mesh_to_python(points_path, edges_path, tri_path, out_dir):
                                         "v1": "p1", "v2": "p2", "v3": "p3"})
 
     points_df.insert(0, "pointsID", [i for i in range(len(points_df))])
-    points_df.columns = ["pointID", "x", "y"]
+    points_df.columns = ["pointsID", "x", "y"]
     points_df.to_csv(f"{out_dir}/Points.csv", index=False)
 
     edges_df.to_csv(f"{out_dir}/Edges.csv", index=False)
