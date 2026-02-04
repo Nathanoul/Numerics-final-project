@@ -33,9 +33,9 @@ def build_matrix_and_rhs_for_line(top_bc, bottom_bc, left_bc, right_bc, k1, k2, 
                 A[i, i + 1] = k / dy ** 2
 
                 if line_index == 1:
-                    flux = -left_bc.get_flux_at_boundary_id(get_id(i - 1, j, num_x))
+                    flux = left_bc.get_flux_at_boundary_id(get_id(i - 1, j, num_x))
                 else:
-                    flux = right_bc.get_flux_at_boundary_id(get_id(i + 1, j, num_x))
+                    flux = -right_bc.get_flux_at_boundary_id(get_id(i + 1, j, num_x))
                 rhs[i] = -k / dx ** 2 * next_line[i] + k / dx * flux
 
         else:
@@ -90,9 +90,9 @@ def build_matrix_and_rhs_for_line(top_bc, bottom_bc, left_bc, right_bc, k1, k2, 
                 A[j, j + 1] = k / dx ** 2
 
                 if line_index == 1:
-                    flux = -bottom_bc.get_flux_at_boundary_id(get_id(i - 1, j, num_x))
+                    flux = bottom_bc.get_flux_at_boundary_id(get_id(i - 1, j, num_x))
                 else:
-                    flux = top_bc.get_flux_at_boundary_id(get_id(i + 1, j, num_x))
+                    flux = -top_bc.get_flux_at_boundary_id(get_id(i + 1, j, num_x))
                 rhs[j] = -k / dy ** 2 * next_line[j] + k / dy * flux
         else:
             for j in range(1, num_x - 1):
