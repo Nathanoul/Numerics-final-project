@@ -173,11 +173,11 @@ def solve_gauss_seidel(k1, k2, dx, dy, repetitions, direction, **boundary_condit
 
             if left_bc.type == "Neumann":
                 boundary_flux = np.array([flux for id, flux in left_bc.flux_at_boundary.items()])
-                solution[0, :] = solution[1, :] + dy * boundary_flux
+                solution[0, :] = solution[1, :] + dx * boundary_flux
 
             if right_bc.type == "Neumann":
                 boundary_flux = np.array([flux for id, flux in right_bc.flux_at_boundary.items()])
-                solution[-1, :] = solution[-2, :] - dy * boundary_flux
+                solution[-1, :] = solution[-2, :] - dx * boundary_flux
 
 
     return solution.reshape(-1)
