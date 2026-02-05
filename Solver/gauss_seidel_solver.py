@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.sparse.linalg import spsolve
+from .thomas_matrix_solver import thomas_solver
 
 def get_ij(id, num_x):
     return id // num_x, id % num_x
@@ -134,7 +134,7 @@ def build_matrix_and_rhs_for_line(top_bc, bottom_bc, left_bc, right_bc, k1, k2, 
     return A, rhs
 
 
-def solve_gauss_seidel(k1, k2, dx, dy, repetitions, direction, **boundary_condition):
+def solve_gauss_seidel(k1, k2, dx, dy, direction, max_rep=0, init_guess=None, tol=10**-3, **boundary_condition):
     top_bc = boundary_condition["top bc"]
     bottom_bc = boundary_condition["bottom bc"]
     right_bc = boundary_condition["right bc"]
@@ -143,23 +143,31 @@ def solve_gauss_seidel(k1, k2, dx, dy, repetitions, direction, **boundary_condit
     num_x = len(bottom_bc.boundary_points_ids)
     num_y = len(right_bc.boundary_points_ids)
 
-    init_guess = np.zeros((num_y, num_x))
+    if not init_guess:
+        init_guess = np.zeros((num_y, num_x))
     for bc_name, bc in boundary_condition.items():
         if bc:
             if bc.type == "Dirichlet":
                 for bc_id in bc.boundary_points_ids:
                     i, j = get_ij(bc_id, num_x)
                     init_guess[i, j] = bc.get_value_at_boundary_id(bc_id)
-    solution = init_guess
+    old_solution = init_guess
+    max_error = 1
+    rep = 0
 
-    for rep in range(repetitions):
+    solution = old_solution.copy()
+    while max_error >= tol or (max_rep and rep < max_rep):
+        rep += 1
         if direction == "x" or direction == "xy":
             for i in range(1, num_y - 1):
                 prev_line = solution[i - 1, :]
                 next_line = solution[i + 1, :]
                 A, rhs = build_matrix_and_rhs_for_line(top_bc, bottom_bc, left_bc, right_bc, k1, k2, dx, dy, num_x, num_y,
                                               next_line, prev_line, direction = "x", line_index = i)
-                solution[i, :] = spsolve(A, rhs)
+                c = [A[j, j + 1] for j in range(num_x - 1)]
+                b = [A[j, j] for j in range(num_x)]
+                a = [A[j + 1, j] for j in range(num_x - 1)]
+                solution[i, :] = thomas_solver(a, b, c, rhs)
 
             if bottom_bc.type == "Neumann":
                 boundary_flux = np.array([flux for id, flux in bottom_bc.flux_at_boundary.items()])
@@ -177,7 +185,10 @@ def solve_gauss_seidel(k1, k2, dx, dy, repetitions, direction, **boundary_condit
                 A, rhs = build_matrix_and_rhs_for_line(top_bc, bottom_bc, left_bc, right_bc, k1, k2, dx, dy, num_x,
                                                        num_y,
                                                        next_line, prev_line, direction = "y", line_index = j)
-                solution[:, j] = spsolve(A, rhs)
+                c = [A[i, i + 1] for i in range(num_y - 1)]
+                b = [A[i, i] for i in range(num_y)]
+                a = [A[i + 1, i] for i in range(num_y - 1)]
+                solution[:, j] = thomas_solver(a, b, c, rhs)
 
             if left_bc.type == "Neumann":
                 boundary_flux = np.array([flux for id, flux in left_bc.flux_at_boundary.items()])
@@ -187,5 +198,9 @@ def solve_gauss_seidel(k1, k2, dx, dy, repetitions, direction, **boundary_condit
                 boundary_flux = np.array([flux for id, flux in right_bc.flux_at_boundary.items()])
                 solution[-1, :] = solution[-2, :] - dx * boundary_flux
 
+        error = abs(old_solution - solution)
+        max_error = max(max(row) for row in error)
+        old_solution = solution.copy()
 
-    return solution.reshape(-1)
+
+    return solution.reshape(-1), rep

@@ -1,14 +1,10 @@
-from Mesh.plot_mesh import plot_mesh
-from Manage_data.get_data import csv_data_to_dic
-from Manage_data.matlab_mesh_to_python import matlab_mesh_to_python
-from Mesh.square_mesh_generator import generate_square_mesh
-from Solver.boundary_condtitions import DirichletBC, NeumannBC
-from Solver.gauss_seidel_solver import solve_gauss_seidel
-from Solver.plotter import plot_steady_state
+from Mesh import *
+from Manage_data import *
+from Solver import *
 
 if __name__ == '__main__':
-    # project_directory = "Numerics-final-project/"
-    project_directory = ""
+    project_directory = "Numerics-final-project/"
+    #project_directory = ""
 
     matlab_mesh_path = f"{project_directory}Mesh_data/Matlab_mesh/"
     no_hole_mesh_path = f"{project_directory}Mesh_data/Square_no_hole_mesh/"
@@ -25,7 +21,7 @@ if __name__ == '__main__':
     hole_points_path = f"{hole_mesh_path}Points.csv"
 
 
-    #generate_square_mesh(200, 200, [- 0.5, 0.5], [- 0.5, 0.5], out_dir=no_hole_mesh_path)
+    #generate_square_mesh(30, 20, [- 0.5, 0.5], [- 0.5, 0.5], out_dir=no_hole_mesh_path)
 
 
     no_hole_points, no_hole_edges, no_hole_cells =\
@@ -44,12 +40,12 @@ if __name__ == '__main__':
                                          edges = no_hole_edges,
                                          cells = no_hole_cells)
     right_bc: DirichletBC = DirichletBC(location = "right",
-                                         value_func = lambda x,y: 1 - 4 * (y + 0.5)**2,
+                                         value_func = lambda x,y: 1 - 4 * y**2,
                                          points = no_hole_points,
                                          edges = no_hole_edges,
                                          cells = no_hole_cells)
     left_bc: DirichletBC = DirichletBC(location = "left",
-                                         value_func = lambda x,y: 1 - 4 * (y + 0.5)**2,
+                                         value_func = lambda x,y: 1 - 4 * y**2,
                                          points = no_hole_points,
                                          edges = no_hole_edges,
                                          cells = no_hole_cells)
@@ -65,6 +61,6 @@ if __name__ == '__main__':
 
     k1 = 10**-3
     k2 = 100
-    solution = solve_gauss_seidel(k1, k2, dx, dy, repetitions = 200, direction = "x", **bc)
+    solution, rep = solve_gauss_seidel(k1, k2, dx, dy, direction = "x", **bc)
 
     plot_steady_state(no_hole_points, no_hole_edges, solution)
