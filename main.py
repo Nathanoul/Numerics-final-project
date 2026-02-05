@@ -61,6 +61,6 @@ if __name__ == '__main__':
 
     k1 = 10**-3
     k2 = 100
-    solution, rep = solve_gauss_seidel(k1, k2, dx, dy, direction = "x", **bc)
+    solution, final_rep, error = solve_gauss_seidel(k1, k2, dx, dy, direction = "xy", **bc)
 
     plot_steady_state(no_hole_points, no_hole_edges, solution)

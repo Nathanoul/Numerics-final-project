@@ -146,7 +146,7 @@ def solve_gauss_seidel(k1, k2, dx, dy, direction, max_rep=0, init_guess=None, to
     if not init_guess:
         init_guess = np.zeros((num_y, num_x))
     for bc_name, bc in boundary_condition.items():
-        if bc:
+        if bc is not None:
             if bc.type == "Dirichlet":
                 for bc_id in bc.boundary_points_ids:
                     i, j = get_ij(bc_id, num_x)
@@ -156,7 +156,7 @@ def solve_gauss_seidel(k1, k2, dx, dy, direction, max_rep=0, init_guess=None, to
     rep = 0
 
     solution = old_solution.copy()
-    while max_error >= tol or (max_rep and rep < max_rep):
+    while max_error >= tol and (max_rep is 0 or rep < max_rep):
         rep += 1
         if direction == "x" or direction == "xy":
             for i in range(1, num_y - 1):
@@ -203,4 +203,4 @@ def solve_gauss_seidel(k1, k2, dx, dy, direction, max_rep=0, init_guess=None, to
         old_solution = solution.copy()
 
 
-    return solution.reshape(-1), rep
+    return solution.reshape(-1), rep, max_error
