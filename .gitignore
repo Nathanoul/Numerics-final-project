@@ -3,3 +3,6 @@
 .venv/
 venv/
 env/
+Solver/__pycache__/
+Manage_data/__pycache__/
+Mesh/__pycache__/
