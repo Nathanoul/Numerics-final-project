@@ -1,5 +1,6 @@
 import numpy as np
 from .thomas_matrix_solver import thomas_solver
+from scipy.sparse.linalg import spsolve
 
 def get_ij(id, num_x):
     return id // num_x, id % num_x
@@ -15,6 +16,18 @@ def get_k(i, j, num_x, num_y, k1, k2):
     else:
         return k1
 
+def get_k_star(i, j, num_x, num_y, k1, k2):
+    def harmonic_mean(a, b):
+        return 2 * a * b / (b + a)
+
+    k_left = harmonic_mean( get_k(i, j, num_x, num_y, k1, k2), get_k(i, j - 1, num_x, num_y, k1, k2))
+    k_right = harmonic_mean( get_k(i, j, num_x, num_y, k1, k2), get_k(i, j + 1, num_x, num_y, k1, k2))
+    k_down = harmonic_mean( get_k(i - 1, j, num_x, num_y, k1, k2), get_k(i, j, num_x, num_y, k1, k2))
+    k_up = harmonic_mean( get_k(i + 1, j, num_x, num_y, k1, k2), get_k(i, j, num_x, num_y, k1, k2))
+
+    k_center_x = (k_left + k_right) / 2
+    k_center_y = (k_up + k_down) / 2
+    return k_up, k_down, k_left, k_right, k_center_x, k_center_y
 
 def build_matrix_and_rhs_for_line(top_bc, bottom_bc, left_bc, right_bc, k1, k2, dx, dy, num_x, num_y,
                                   next_line, prev_line, direction, line_index):
@@ -26,28 +39,28 @@ def build_matrix_and_rhs_for_line(top_bc, bottom_bc, left_bc, right_bc, k1, k2, 
            ((line_index == num_x - 2) and (right_bc.type == "Neumann")):
             for i in range(1, num_y - 1):
                 j = line_index
-                k = get_k(i, j, num_x, num_y, k1, k2)
+                k_up, k_down, k_left, k_right, k_center_x, k_center_y = get_k_star(i, j, num_x, num_y, k1, k2)
 
-                A[i, i] = -2 * (k / dx ** 2 + k / dy ** 2) + k / dx ** 2
-                A[i, i - 1] = k / dy ** 2
-                A[i, i + 1] = k / dy ** 2
+                A[i, i] = 2 * (k_center_x / dx ** 2 + k_center_y / dy ** 2) - k_left / dx ** 2
+                A[i, i - 1] = -k_down / dy ** 2
+                A[i, i + 1] = -k_up / dy ** 2
 
                 if line_index == 1:
                     flux = left_bc.get_flux_at_boundary_id(get_id(i - 1, j, num_x))
                 else:
                     flux = -right_bc.get_flux_at_boundary_id(get_id(i + 1, j, num_x))
-                rhs[i] = -k / dx ** 2 * next_line[i] + k / dx * flux
+                rhs[i] = k_right / dx ** 2 * next_line[i] + k_left / dx * flux
 
         else:
             for i in range(1, num_y - 1):
                 j = line_index
-                k = get_k(i, j, num_x, num_y, k1, k2)
+                k_up, k_down, k_left, k_right, k_center_x, k_center_y = get_k_star(i, j, num_x, num_y, k1, k2)
 
-                A[i, i] = -2 * (k / dx ** 2 + k / dy ** 2)
-                A[i, i - 1] = k / dy ** 2
-                A[i, i + 1] = k / dy ** 2
+                A[i, i] = 2 * (k_center_x / dx ** 2 + k_center_y / dy ** 2)
+                A[i, i - 1] = -k_down / dy ** 2
+                A[i, i + 1] = -k_up / dy ** 2
 
-                rhs[i] = -k / dx ** 2 * next_line[i] - k / dx ** 2 * prev_line[i]
+                rhs[i] = k_right / dx ** 2 * next_line[i] + k_left / dx ** 2 * prev_line[i]
 
         if bottom_bc.type == "Dirichlet":
             A[0, 0] = 1
@@ -83,27 +96,27 @@ def build_matrix_and_rhs_for_line(top_bc, bottom_bc, left_bc, right_bc, k1, k2, 
            ((line_index == num_y - 2) and (top_bc.type == "Neumann")):
             for j in range(1, num_x - 1):
                 i = line_index
-                k = get_k(i, j, num_x, num_y, k1, k2)
+                k_up, k_down, k_left, k_right, k_center_x, k_center_y = get_k_star(i, j, num_x, num_y, k1, k2)
 
-                A[j, j] = -2 * (k / dx ** 2 + k / dy ** 2) + k / dy ** 2
-                A[j, j - 1] = k / dx ** 2
-                A[j, j + 1] = k / dx ** 2
+                A[j, j] = 2 * (k_center_x / dx ** 2 + k_center_y / dy ** 2)  - k_down / dy ** 2
+                A[j, j - 1] = -k_left / dx ** 2
+                A[j, j + 1] = -k_right / dx ** 2
 
                 if line_index == 1:
                     flux = bottom_bc.get_flux_at_boundary_id(get_id(i - 1, j, num_x))
                 else:
                     flux = -top_bc.get_flux_at_boundary_id(get_id(i + 1, j, num_x))
-                rhs[j] = -k / dy ** 2 * next_line[j] + k / dy * flux
+                rhs[j] = k_up / dy ** 2 * next_line[j] - k_down / dy * flux
         else:
             for j in range(1, num_x - 1):
                 i = line_index
-                k = get_k(i, j, num_x, num_y, k1, k2)
+                k_up, k_down, k_left, k_right, k_center_x, k_center_y = get_k_star(i, j, num_x, num_y, k1, k2)
 
-                A[j, j] = -2 * (k / dx ** 2 + k / dy ** 2)
-                A[j, j - 1] = k / dx ** 2
-                A[j, j + 1] = k / dx ** 2
+                A[j, j] = 2 * (k_center_x / dx ** 2 + k_center_y / dy ** 2)
+                A[j, j - 1] = -k_left / dx ** 2
+                A[j, j + 1] = -k_right / dx ** 2
 
-                rhs[j] = -k / dy ** 2 * next_line[j] - k / dy ** 2 * prev_line[j]
+                rhs[j] = k_up / dy ** 2 * next_line[j] + k_down / dy ** 2 * prev_line[j]
 
         if left_bc.type == "Dirichlet":
             A[0, 0] = 1
@@ -156,7 +169,7 @@ def solve_gauss_seidel(k1, k2, dx, dy, direction, max_rep=0, init_guess=None, to
     rep = 0
 
     solution = old_solution.copy()
-    while max_error >= tol and (max_rep is 0 or rep < max_rep):
+    while max_error >= tol and (max_rep == 0 or rep < max_rep):
         rep += 1
         if direction == "x" or direction == "xy":
             for i in range(1, num_y - 1):
