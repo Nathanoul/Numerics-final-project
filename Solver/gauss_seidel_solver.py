@@ -1,33 +1,6 @@
 import numpy as np
 from .thomas_matrix_solver import thomas_solver
-from scipy.sparse.linalg import spsolve
-
-def get_ij(id, num_x):
-    return id // num_x, id % num_x
-
-
-def get_id(i, j, num_x):
-    return i * num_x + j
-
-
-def get_k(i, j, num_x, num_y, k1, k2):
-    if (i >= num_y // 2) and (j >= num_x // 2):
-        return k2
-    else:
-        return k1
-
-def get_k_star(i, j, num_x, num_y, k1, k2):
-    def harmonic_mean(a, b):
-        return 2 * a * b / (b + a)
-
-    k_left = harmonic_mean( get_k(i, j, num_x, num_y, k1, k2), get_k(i, j - 1, num_x, num_y, k1, k2))
-    k_right = harmonic_mean( get_k(i, j, num_x, num_y, k1, k2), get_k(i, j + 1, num_x, num_y, k1, k2))
-    k_down = harmonic_mean( get_k(i - 1, j, num_x, num_y, k1, k2), get_k(i, j, num_x, num_y, k1, k2))
-    k_up = harmonic_mean( get_k(i + 1, j, num_x, num_y, k1, k2), get_k(i, j, num_x, num_y, k1, k2))
-
-    k_center_x = (k_left + k_right) / 2
-    k_center_y = (k_up + k_down) / 2
-    return k_up, k_down, k_left, k_right, k_center_x, k_center_y
+from .general_functions import *
 
 def build_matrix_and_rhs_for_line(top_bc, bottom_bc, left_bc, right_bc, k1, k2, dx, dy, num_x, num_y,
                                   next_line, prev_line, direction, line_index):
@@ -156,7 +129,7 @@ def solve_gauss_seidel(k1, k2, dx, dy, direction, max_rep=0, init_guess=None, to
     num_x = len(bottom_bc.boundary_points_ids)
     num_y = len(right_bc.boundary_points_ids)
 
-    if not init_guess:
+    if init_guess is not None:
         init_guess = np.zeros((num_y, num_x))
     for bc_name, bc in boundary_condition.items():
         if bc is not None:
@@ -216,4 +189,4 @@ def solve_gauss_seidel(k1, k2, dx, dy, direction, max_rep=0, init_guess=None, to
         old_solution = solution.copy()
 
 
-    return solution.reshape(-1), rep, max_error
+    return solution, rep, max_error
