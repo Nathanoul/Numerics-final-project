@@ -63,10 +63,7 @@ if __name__ == '__main__':
     k1 = 10**-3
     k2 = 100
     #solution, final_rep, error = solve_gauss_seidel(k1, k2, dx, dy, direction = "x", **bc)
-    #solution = solution.reshape(-1)
 
-    solution = np.zeros((20, 20))
-    for iter in range(20):
-        solution = vcycle(solution, k1, k2, dx, dy, **bc)
+    solution = multigrid_solver(k1, k2, dx, dy, max_level=1, **bc)
 
-    plot_steady_state(no_hole_points, no_hole_edges, solution)
+    plot_steady_state(no_hole_points, no_hole_edges, solution.reshape(-1))

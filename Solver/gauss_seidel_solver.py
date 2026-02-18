@@ -6,7 +6,7 @@ def build_matrix_and_rhs_for_line(top_bc, bottom_bc, left_bc, right_bc, k1, k2, 
                                   next_line, prev_line, direction, line_index):
     if direction == "y":
         A = np.zeros((num_y, num_y))
-        rhs = np.zeros((num_y, 1))
+        rhs = np.zeros((num_y,))
 
         if ((line_index == 1) and (left_bc.type == "Neumann")) or \
            ((line_index == num_x - 2) and (right_bc.type == "Neumann")):
@@ -120,7 +120,7 @@ def build_matrix_and_rhs_for_line(top_bc, bottom_bc, left_bc, right_bc, k1, k2, 
     return A, rhs
 
 
-def solve_gauss_seidel(k1, k2, dx, dy, direction, max_rep=0, init_guess=None, tol=10**-3, **boundary_condition):
+def solve_gauss_seidel(k1, k2, dx, dy, direction, max_rep=0, init_guess=None, tol=10**-3, source=None, **boundary_condition):
     top_bc = boundary_condition["top bc"]
     bottom_bc = boundary_condition["bottom bc"]
     right_bc = boundary_condition["right bc"]
@@ -129,8 +129,10 @@ def solve_gauss_seidel(k1, k2, dx, dy, direction, max_rep=0, init_guess=None, to
     num_x = len(bottom_bc.boundary_points_ids)
     num_y = len(right_bc.boundary_points_ids)
 
-    if init_guess is not None:
+    if init_guess is None:
         init_guess = np.zeros((num_y, num_x))
+    if source is None:
+        source = np.zeros((num_y, num_x))
     for bc_name, bc in boundary_condition.items():
         if bc is not None:
             if bc.type == "Dirichlet":
@@ -153,7 +155,7 @@ def solve_gauss_seidel(k1, k2, dx, dy, direction, max_rep=0, init_guess=None, to
                 c = [A[j, j + 1] for j in range(num_x - 1)]
                 b = [A[j, j] for j in range(num_x)]
                 a = [A[j + 1, j] for j in range(num_x - 1)]
-                solution[i, :] = thomas_solver(a, b, c, rhs)
+                solution[i, :] = thomas_solver(a, b, c, rhs + source[i, :])
 
             if bottom_bc.type == "Neumann":
                 boundary_flux = np.array([flux for id, flux in bottom_bc.flux_at_boundary.items()])
@@ -174,7 +176,7 @@ def solve_gauss_seidel(k1, k2, dx, dy, direction, max_rep=0, init_guess=None, to
                 c = [A[i, i + 1] for i in range(num_y - 1)]
                 b = [A[i, i] for i in range(num_y)]
                 a = [A[i + 1, i] for i in range(num_y - 1)]
-                solution[:, j] = thomas_solver(a, b, c, rhs)
+                solution[:, j] = thomas_solver(a, b, c, rhs + source[:, j])
 
             if left_bc.type == "Neumann":
                 boundary_flux = np.array([flux for id, flux in left_bc.flux_at_boundary.items()])

@@ -13,18 +13,18 @@ class DirichletBC():
         self.R = R
 
         x, y = np.array(list(points["x"].values())), np.array(list(points["y"].values()))
-        top_x = max(x)
-        bottom_x = min(x)
-        top_y = max(y)
-        bottom_y = min(y)
+        self.top_x = max(x)
+        self.bottom_x = min(x)
+        self.top_y = max(y)
+        self.bottom_y = min(y)
         if self.location == "left":
-            boundary = x - bottom_x <= 0.5 * self.eps
+            boundary = x - self.bottom_x <= 0.5 * self.eps
         if self.location == "right":
-            boundary = top_x - x <= 0.5 * self.eps
+            boundary = self.top_x - x <= 0.5 * self.eps
         if self.location == "bottom":
-            boundary = y - bottom_y <= 0.5 * self.eps
+            boundary = y - self.bottom_y <= 0.5 * self.eps
         if self.location == "top":
-            boundary = top_y - y <= 0.5 * self.eps
+            boundary = self.top_y - y <= 0.5 * self.eps
         if self.location == "circle":
             boundary = (x - self.cx) ** 2 + (y - self.cy) ** 2 - self.R ** 2 <= 0.25 * self.eps ** 2
         self.boundary_points_ids = [i for i, b in enumerate(boundary) if b == 1]
@@ -61,10 +61,42 @@ class DirichletBC():
 
         self.values_at_boundary = {id: self.value_func(x[id], y[id]) for id in bc_ids}
 
+    #updates just point ids
+    def resize_for_square_mesh(self, new_num_x, new_num_y):
+        bc_ids = []
+        bc_values = {}
+        bottom_x = self.bottom_x
+        bottom_y = self.bottom_y
+        top_x = self.top_x
+        top_y = self.top_y
+        y_span = np.linspace(bottom_y, top_y, new_num_y)
+        x_span = np.linspace(bottom_x, top_x, new_num_x)
+
+        if self.location == "left":
+            for i in range(new_num_y):
+                new_bc_id = i * new_num_y
+                bc_ids.append(new_bc_id)
+                bc_values[new_bc_id] = self.value_func(bottom_x, y_span[i])
+        if self.location == "right":
+            for i in range(new_num_y):
+                new_bc_id = (i + 1) * new_num_y - 1
+                bc_ids.append(new_bc_id)
+                bc_values[new_bc_id] = self.value_func(top_x, y_span[i])
+        if self.location == "top":
+            for j in range(new_num_x):
+                new_bc_id = new_num_x * (new_num_y - 1) + j
+                bc_ids.append(new_bc_id)
+                bc_values[new_bc_id] = self.value_func(x_span[j], top_y)
+        if self.location == "bottom":
+            for j in range(new_num_x):
+                new_bc_id = j
+                bc_ids.append(new_bc_id)
+                bc_values[new_bc_id] = self.value_func(x_span[j], bottom_y)
+        self.values_at_boundary = bc_values
+        self.boundary_points_ids = bc_ids
 
     def get_value_at_boundary_id(self, id):
         return self.values_at_boundary[id]
-
 
     def on_boundary(self, point_id):
         return any(self.boundary_points_ids == point_id)
@@ -92,18 +124,18 @@ class NeumannBC():
         self.R = R
 
         x, y = np.array(list(points["x"].values())), np.array(list(points["y"].values()))
-        top_x = max(x)
-        bottom_x = min(x)
-        top_y = max(y)
-        bottom_y = min(y)
+        self.top_x = max(x)
+        self.bottom_x = min(x)
+        self.top_y = max(y)
+        self.bottom_y = min(y)
         if self.location == "left":
-            boundary = x - bottom_x <= 0.5 * self.eps
+            boundary = x - self.bottom_x <= 0.5 * self.eps
         if self.location == "right":
-            boundary = top_x - x <= 0.5 * self.eps
+            boundary = self.top_x - x <= 0.5 * self.eps
         if self.location == "bottom":
-            boundary = y - bottom_y <= 0.5 * self.eps
+            boundary = y - self.bottom_y <= 0.5 * self.eps
         if self.location == "top":
-            boundary = top_y - y <= 0.5 * self.eps
+            boundary = self.top_y - y <= 0.5 * self.eps
         if self.location == "circle":
             boundary = (x - self.cx) ** 2 + (y - self.cy) ** 2 - self.R ** 2 <= 0.25 * self.eps ** 2
         self.boundary_points_ids = [i for i, b in enumerate(boundary) if b == 1]
@@ -140,6 +172,39 @@ class NeumannBC():
 
         self.flux_at_boundary = {id: self.flux_func(x[id], y[id]) for id in bc_ids}
 
+    #updates just point ids
+    def resize_for_square_mesh(self, new_num_y, new_num_x):
+        bc_ids = []
+        bc_values = {}
+        bottom_x = self.bottom_x
+        bottom_y = self.bottom_y
+        top_x = self.top_x
+        top_y = self.top_y
+        y_span = np.linspace(bottom_y, top_y, new_num_y)
+        x_span = np.linspace(bottom_x, top_x, new_num_x)
+
+        if self.location == "left":
+            for i in range(new_num_y):
+                new_bc_id = i * new_num_y
+                bc_ids.append(new_bc_id)
+                bc_values[new_bc_id] = self.flux_func(bottom_x, y_span[i])
+        if self.location == "right":
+            for i in range(new_num_y):
+                new_bc_id = (i + 1) * new_num_y - 1
+                bc_ids.append(new_bc_id)
+                bc_values[new_bc_id] = self.flux_func(top_x, y_span[i])
+        if self.location == "top":
+            for j in range(new_num_x):
+                new_bc_id = new_num_x * (new_num_y - 1) + j
+                bc_ids.append(new_bc_id)
+                bc_values[new_bc_id] = self.flux_func(x_span[j], top_y)
+        if self.location == "bottom":
+            for j in range(new_num_x):
+                new_bc_id = j
+                bc_ids.append(new_bc_id)
+                bc_values[new_bc_id] = self.flux_func(x_span[j], bottom_y)
+        self.flux_at_boundary = bc_values
+        self.boundary_points_ids = bc_ids
 
     def get_flux_at_boundary_id(self, id):
         return self.flux_at_boundary[id]
