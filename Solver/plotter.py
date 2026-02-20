@@ -40,7 +40,8 @@ def plot_steady_state(points, edges, solution, cmap="inferno", show_mesh=False):
                 [y[n1], y[n2]],
                 color="blue",
                 linewidth=0.5,
-                alpha=0.6
+                alpha=0.6,
+                origin='lower'
             )
 
     plt.xlabel("x")

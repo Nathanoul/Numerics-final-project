@@ -1,16 +1,17 @@
-from .multigrid import vcycle, residual
+from .multigrid import *
 import numpy as np
 from scipy.sparse.linalg import LinearOperator
 from .general_functions import *
 
-class Mulrigrid_preconditioner():
-    def __init__(self, k1, k2, dx, dy, max_level, max_rep=0, **boundary_condition):
+class Multigrid_preconditioner():
+    def __init__(self, k1, k2, dx, dy, max_level, max_rep=1, max_gauss_iter=1, **boundary_condition):
         self.k1 = k1
         self.k2 = k2
         self.dx = dx
         self.dy = dy
         self.max_level=max_level
         self.max_rep = max_rep
+        self.max_gauss_iter = max_gauss_iter
 
         self.bc = boundary_condition
         self.num_x = self.bc["bottom bc"].bc_points_num
@@ -29,22 +30,23 @@ class Mulrigrid_preconditioner():
 
     def mg_preconditioner(self, r):
         z0 = np.zeros_like(r).astype(float)
-        z = vcycle(
-            T=z0,
-            k1=self.k1,
-            k2=self.k2,
-            dx=self.dx,
-            dy=self.dy,
-            source=r,
-            level=0,
-            max_level=self.max_level,
-            max_rep=self.max_rep,
-            **self.bc
+        z, *_ = solve_multigrid(
+                init_guess=z0,
+                k1=self.k1,
+                k2=self.k2,
+                dx=self.dx,
+                dy=self.dy,
+                source=r,
+                max_level=self.max_level,
+                max_gauss_iter=self.max_gauss_iter,
+                max_rep=self.max_rep,
+                use_zero_bc=True,
+                **self.bc
         )
         return z
 
     def A_operator(self, T):
-        AT_no_bc = residual(T=T, k1=self.k1, k2=self.k2, dx=self.dx, dy=self.dy)
+        AT_no_bc = -residual(T=T, k1=self.k1, k2=self.k2, dx=self.dx, dy=self.dy)
         get_ij_wrapper = lambda id: get_ij(id, self.num_x)
 
         for bc_name, bc in self.actual_bc.items():
@@ -59,7 +61,7 @@ class Mulrigrid_preconditioner():
         return AT.ravel()
 
     def precond(self, x):
-        r = x.reshape(self.num_x, self.num_y)
+        r = x.reshape(self.num_y, self.num_x)
         z = self.mg_preconditioner(r)
         return z.ravel()
 

@@ -205,12 +205,12 @@ class NeumannBC():
 
         if self.location == "left":
             for i in range(new_num_y):
-                new_bc_id = i * new_num_y
+                new_bc_id = i * new_num_x
                 bc_ids.append(new_bc_id)
                 bc_values[new_bc_id] = self.flux_func(bottom_x, y_span[i])
         if self.location == "right":
             for i in range(new_num_y):
-                new_bc_id = (i + 1) * new_num_y - 1
+                new_bc_id =  i * new_num_x + (new_num_x - 1)
                 bc_ids.append(new_bc_id)
                 bc_values[new_bc_id] = self.flux_func(top_x, y_span[i])
         if self.location == "top":
@@ -241,23 +241,25 @@ class NeumannBC():
             dx, dy = self.dx_sl, self.dy_sl
 
             if self.location == "bottom":
-                AT[i, j] = (T[i+1, j] - T[i, j]) / dy
+                AT[i, j] = (T[i+1, j] - T[i, j])
             if self.location == "top":
-                AT[i, j] = (T[i, j] - T[i-1, j]) / dy
+                AT[i, j] = (T[i, j] - T[i-1, j])
             if self.location == "left":
-                AT[i, j] = (T[i, j+1] - T[i, j]) / dx
+                AT[i, j] = (T[i, j+1] - T[i, j])
             if self.location == "left":
-                AT[i, j] = (T[i, j] - T[i, j-1]) / dx
+                AT[i, j] = (T[i, j] - T[i, j-1])
 
         return AT
 
 
     def apply_rhs(self, rhs):
+        dx, dy = self.dx_sl, self.dy_sl
+
         if self.location == "bottom" or self.location == "top":
             for id in self.boundary_points_ids:
-                rhs[id] = self.get_flux_at_boundary_id(id)
+                rhs[id] = self.get_flux_at_boundary_id(id) * dy
         elif self.location == "right" or self.location == "left":
             for id in self.boundary_points_ids:
-                rhs[id] = self.get_flux_at_boundary_id(id)
+                rhs[id] = self.get_flux_at_boundary_id(id) * dx
 
         return rhs

@@ -32,6 +32,7 @@ def prolong(e):
     fine[-1, 1:-1:2] = 0.5 * (e[-1, :-1] + e[-1, 1:])
     fine[1:-1:2, -1] = 0.5 * (e[:-1, -1] + e[1:, -1])
     fine[-1, -1] = e[-1, -1]
+
     return fine
 
 def residual(T, k1, k2, dx, dy):
@@ -77,8 +78,12 @@ def vcycle(T, k1, k2, dx, dy, source=None, level=0, max_level=1, max_gauss_iter 
                                init_guess=T, source=source, **relevant_bc)
 
     r = residual(T, k1, k2, dx, dy)
+    if source is not None:
+        r = r + source
 
     if level==max_level:
+        T, *_ = solve_gauss_seidel(k1, k2, dx, dy, direction="xy", max_rep=50,
+                                   init_guess=T, source=source, **relevant_bc)
         return T
 
     rc = restrict(r)
@@ -103,22 +108,24 @@ def vcycle(T, k1, k2, dx, dy, source=None, level=0, max_level=1, max_gauss_iter 
     return T
 
 
-def solve_multigrid(k1, k2, dx, dy, max_level, max_gauss_iter,
-                    init_guess=None, max_rep=0, tol=10**-3, **boundary_condition):
+def solve_multigrid(k1, k2, dx, dy, max_level, max_gauss_iter, use_zero_bc=False,
+                    init_guess=None, source=None, max_rep=0, tol=10**-3, **boundary_condition):
     num_x = boundary_condition["bottom bc"].bc_points_num
     num_y = boundary_condition["right bc"].bc_points_num
 
     if init_guess is None:
         init_guess = np.zeros((num_y, num_x))
-
+    if source is None:
+        source = np.zeros((num_y, num_x))
+    init_guess = init_guess.copy()
     old_solution = init_guess
     max_error = 1
     rep = 0
 
     solution = old_solution.copy()
     while max_error >= tol and (max_rep == 0 or rep < max_rep):
-        solution = vcycle(solution, k1, k2, dx, dy, max_level=max_level, max_gauss_iter=max_gauss_iter,
-                          **boundary_condition)
+        solution = vcycle(solution, k1, k2, dx, dy, source=source, max_level=max_level, max_gauss_iter=max_gauss_iter,
+                          use_zero_bc=use_zero_bc, **boundary_condition)
 
         error = abs(old_solution - solution)
         max_error = max(max(row) for row in error)
