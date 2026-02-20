@@ -1,4 +1,5 @@
 import numpy as np
+from .general_functions import *
 
 class DirichletBC():
 
@@ -29,6 +30,8 @@ class DirichletBC():
             boundary = (x - self.cx) ** 2 + (y - self.cy) ** 2 - self.R ** 2 <= 0.25 * self.eps ** 2
         self.boundary_points_ids = [i for i, b in enumerate(boundary) if b == 1]
         bc_ids = self.boundary_points_ids
+
+        self.bc_points_num =len(bc_ids)
 
         self.boundary_edges_ids = []
         for edge_id in edges["edgeID"].values():
@@ -94,6 +97,7 @@ class DirichletBC():
                 bc_values[new_bc_id] = self.value_func(x_span[j], bottom_y)
         self.values_at_boundary = bc_values
         self.boundary_points_ids = bc_ids
+        self.bc_points_num = len(bc_ids)
 
     def get_value_at_boundary_id(self, id):
         return self.values_at_boundary[id]
@@ -102,12 +106,22 @@ class DirichletBC():
         return any(self.boundary_points_ids == point_id)
 
 
-    # Don't use this function, it doesn't have a purpose yet
-    def apply(self, A, b, n, points):
-        x, y = points["x"][n], points["y"][n]
-        A[n, :] = 0
-        A[n, n] = 1
-        b[n] = self.value_func(x, y)
+    def apply_AT(self, AT, T, get_ij):
+        for id in self.boundary_points_ids:
+            i, j = get_ij(id)
+            AT[i, j] = T[i, j]
+
+        return AT
+
+    def apply_rhs(self, rhs):
+        for id in self.boundary_points_ids:
+            rhs[id] = self.get_value_at_boundary_id(id)
+
+        return rhs
+
+
+
+
 
 
 
@@ -122,6 +136,9 @@ class NeumannBC():
         self.cx = cx
         self.cy = cy
         self.R = R
+
+        #for square lattice
+        self.dx_sl, self.dy_sl = edges["len"][0], edges["len"][1]
 
         x, y = np.array(list(points["x"].values())), np.array(list(points["y"].values()))
         self.top_x = max(x)
@@ -140,6 +157,8 @@ class NeumannBC():
             boundary = (x - self.cx) ** 2 + (y - self.cy) ** 2 - self.R ** 2 <= 0.25 * self.eps ** 2
         self.boundary_points_ids = [i for i, b in enumerate(boundary) if b == 1]
         bc_ids = self.boundary_points_ids
+
+        self.bc_points_num = len(bc_ids)
 
         self.boundary_edges_ids = []
         for edge_id in edges["edgeID"].values():
@@ -171,6 +190,7 @@ class NeumannBC():
                     self.boundary_cells_ids.append(cell_id)
 
         self.flux_at_boundary = {id: self.flux_func(x[id], y[id]) for id in bc_ids}
+
 
     #updates just point ids
     def resize_for_square_mesh(self, new_num_y, new_num_x):
@@ -205,6 +225,7 @@ class NeumannBC():
                 bc_values[new_bc_id] = self.flux_func(x_span[j], bottom_y)
         self.flux_at_boundary = bc_values
         self.boundary_points_ids = bc_ids
+        self.bc_points_num = len(bc_ids)
 
     def get_flux_at_boundary_id(self, id):
         return self.flux_at_boundary[id]
@@ -214,35 +235,29 @@ class NeumannBC():
         return any(self.boundary_points_ids == point_id)
 
 
-    #Don't use this function, it doesn't have a purpose yet
-    def apply(self, A, b, n, points, edges):
-        if self.lattice == "homogeneous square":
-            x, y = points["x"][n], points["y"][n]
-
-            N_row = np.sqrt(points["x"][-1] + 1)
-            i = n % N_row
-            j = n // N_row
-            dx, dy = edges["len"][0], edges["len"][1]
-            q = self.flux_func(x, y)
+    def apply_AT(self, AT, T, get_ij):
+        for id in self.boundary_points_ids:
+            i, j = get_ij(id)
+            dx, dy = self.dx_sl, self.dy_sl
 
             if self.location == "bottom":
-                north = i * N_row + j + 1
-                A[n, n] += 1.0 / dy ** 2
-                A[n, north] -= 1.0 / dy ** 2
-                b[n] += q / dy
+                AT[i, j] = (T[i+1, j] - T[i, j]) / dy
             if self.location == "top":
-                south = i * N_row + j - 1
-                A[n, n] += 1.0 / dy ** 2
-                A[n, south] -= 1.0 / dy ** 2
-                b[n] += q / dy
+                AT[i, j] = (T[i, j] - T[i-1, j]) / dy
             if self.location == "left":
-                east = (i + 1) * N_row + j
-                A[n, n] += 1.0 / dy ** 2
-                A[n, east] -= 1.0 / dy ** 2
-                b[n] += q / dy
+                AT[i, j] = (T[i, j+1] - T[i, j]) / dx
             if self.location == "left":
-                west = (i - 1) * N_row + j
-                A[n, n] += 1.0 / dy ** 2
-                A[n, west] -= 1.0 / dy ** 2
-                b[n] += q / dy
+                AT[i, j] = (T[i, j] - T[i, j-1]) / dx
 
+        return AT
+
+
+    def apply_rhs(self, rhs):
+        if self.location == "bottom" or self.location == "top":
+            for id in self.boundary_points_ids:
+                rhs[id] = self.get_flux_at_boundary_id(id)
+        elif self.location == "right" or self.location == "left":
+            for id in self.boundary_points_ids:
+                rhs[id] = self.get_flux_at_boundary_id(id)
+
+        return rhs

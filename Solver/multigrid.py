@@ -10,12 +10,28 @@ def restrict(r):
         +r[1::2,1::2])
 
 def prolong(e):
-    num_x, num_y = e.shape
-    fine = np.zeros((2*num_x, 2*num_y))
-    fine[::2,::2] = e
-    fine[1::2,::2] = e
-    fine[::2,1::2] = e
-    fine[1::2,1::2] = e
+    num_y, num_x = e.shape
+    fine = np.zeros((2 * num_y, 2 * num_x))
+
+    # Inject coarse values at even indices
+    fine[::2, ::2] = e
+
+    # Interpolate along x (only interior odd columns)
+    fine[::2, 1:-1:2] = 0.5 * (e[:, :-1] + e[:, 1:])
+    # Copy boundary column
+    fine[::2, -1] = e[:, -1]
+
+    # Interpolate along y (only interior odd rows)
+    fine[1:-1:2, ::2] = 0.5 * (e[:-1, :] + e[1:, :])
+    # Copy boundary row
+    fine[-1, ::2] = e[-1, :]
+
+    # Interpolate at interior cell centers
+    fine[1:-1:2, 1:-1:2] = 0.25 * (e[:-1, :-1] + e[:-1, 1:] + e[1:, :-1] + e[1:, 1:])
+    # Copy boundary corners/edges
+    fine[-1, 1:-1:2] = 0.5 * (e[-1, :-1] + e[-1, 1:])
+    fine[1:-1:2, -1] = 0.5 * (e[:-1, -1] + e[1:, -1])
+    fine[-1, -1] = e[-1, -1]
     return fine
 
 def residual(T, k1, k2, dx, dy):
@@ -27,10 +43,10 @@ def residual(T, k1, k2, dx, dy):
 
             k_up, k_down, k_left, k_right, k_center_x, k_center_y = get_k_star(i, j, num_x, num_y, k1, k2)
 
-            r[i,j]=(k_right * (T[i+1,j] - T[i,j])
-                   -k_left * (T[i,j] - T[i-1,j])) / dx**2 \
-                 +(k_up * (T[i,j+1] - T[i,j])
-                   -k_down * (T[i,j] - T[i,j-1])) / dy**2
+            r[i,j]=(k_up * (T[i+1,j] - T[i,j])
+                   -k_down * (T[i,j] - T[i-1,j])) / dy**2 \
+                 +(k_right * (T[i,j+1] - T[i,j])
+                   -k_left * (T[i,j] - T[i,j-1])) / dx**2
 
     return r
 
@@ -84,19 +100,13 @@ def vcycle(T, k1, k2, dx, dy, source=None, level=0, max_level=1, max_gauss_iter 
 
     T, *_ = solve_gauss_seidel(k1, k2, dx, dy, direction="y", max_rep=max_gauss_iter,
                                init_guess=T, source=source, **relevant_bc)
-
     return T
 
 
 def solve_multigrid(k1, k2, dx, dy, max_level, max_gauss_iter,
                     init_guess=None, max_rep=0, tol=10**-3, **boundary_condition):
-    top_bc = boundary_condition["top bc"]
-    bottom_bc = boundary_condition["bottom bc"]
-    right_bc = boundary_condition["right bc"]
-    left_bc = boundary_condition["left bc"]
-
-    num_x = len(bottom_bc.boundary_points_ids)
-    num_y = len(right_bc.boundary_points_ids)
+    num_x = boundary_condition["bottom bc"].bc_points_num
+    num_y = boundary_condition["right bc"].bc_points_num
 
     if init_guess is None:
         init_guess = np.zeros((num_y, num_x))

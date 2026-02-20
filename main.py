@@ -1,7 +1,6 @@
 from Mesh import *
 from Manage_data import *
 from Solver import *
-import numpy as np
 
 if __name__ == '__main__':
     project_directory = "Numerics-final-project/"
@@ -22,7 +21,7 @@ if __name__ == '__main__':
     hole_points_path = f"{hole_mesh_path}Points.csv"
 
 
-    #generate_square_mesh(128, 128, [- 0.5, 0.5], [- 0.5, 0.5], out_dir=no_hole_mesh_path)
+    #generate_square_mesh(20, 20, [- 0.5, 0.5], [- 0.5, 0.5], out_dir=no_hole_mesh_path)
 
 
     no_hole_points, no_hole_edges, no_hole_cells =\
@@ -85,11 +84,19 @@ if __name__ == '__main__':
 
 
     dx, dy = no_hole_edges["len"][0], no_hole_edges["len"][1]
-
     k1 = 10**-3
     k2 = 100
+
     #solution, final_rep, error = solve_gauss_seidel(k1, k2, dx, dy, direction = "x", **bc)
 
-    solution, final_rep, error  = solve_multigrid(k1, k2, dx, dy, max_level=4, max_gauss_iter=10, **bc, **zero_bc)
+    #solution, final_rep, error  = solve_multigrid(k1, k2, dx, dy, max_level=4, max_gauss_iter=10, **bc, **zero_bc)
+
+    preconditioner: Mulrigrid_preconditioner = Mulrigrid_preconditioner(k1, k2, dx, dy,
+                                                                        max_level=1, max_gauss_iter=10, max_rep=10,
+                                                                        **bc, **zero_bc)
+    A = preconditioner.get_A_operator()
+    M = preconditioner.get_M_operator()
+
+    solution, info = solve_bicgstab(A, M, **bc)
 
     plot_steady_state(no_hole_points, no_hole_edges, solution.reshape(-1))
