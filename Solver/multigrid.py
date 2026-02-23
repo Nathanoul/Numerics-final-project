@@ -81,8 +81,13 @@ def vcycle(T, k1, k2, dx, dy, source=None, level=0, max_level=1, max_gauss_iter 
     if source is not None:
         r = r + source
 
-    if level==max_level:
-        T, *_ = solve_gauss_seidel(k1, k2, dx, dy, direction="xy", max_rep=50,
+    if max_level is not None:
+        if level==max_level:
+            T, *_ = solve_gauss_seidel(k1, k2, dx, dy, direction="xy",
+                                   init_guess=T, source=source, **relevant_bc)
+            return T
+    elif min(T.shape)<=4:
+        T, *_ = solve_gauss_seidel(k1, k2, dx, dy, direction="xy",
                                    init_guess=T, source=source, **relevant_bc)
         return T
 
@@ -108,7 +113,7 @@ def vcycle(T, k1, k2, dx, dy, source=None, level=0, max_level=1, max_gauss_iter 
     return T
 
 
-def solve_multigrid(k1, k2, dx, dy, max_level, max_gauss_iter, use_zero_bc=False,
+def solve_multigrid(k1, k2, dx, dy, max_gauss_iter=1, use_zero_bc=False, max_level=None,
                     init_guess=None, source=None, max_rep=0, tol=10**-3, **boundary_condition):
     num_x = boundary_condition["bottom bc"].bc_points_num
     num_y = boundary_condition["right bc"].bc_points_num

@@ -1,10 +1,11 @@
 from Mesh import *
 from Manage_data import *
 from Solver import *
+import numpy as np
 
 import time
 if __name__ == '__main__':
-    # project_directory = "Numerics-final-project/"
+    #project_directory = "Numerics-final-project/"
     project_directory = ""
 
     matlab_mesh_path = f"{project_directory}Mesh_data/Matlab_mesh/"
@@ -22,7 +23,7 @@ if __name__ == '__main__':
     hole_points_path = f"{hole_mesh_path}Points.csv"
 
 
-    # generate_square_mesh(128, 128, [- 0.5, 0.5], [- 0.5, 0.5], out_dir=no_hole_mesh_path)
+    #generate_square_mesh(256, 256, [- 0.5, 0.5], [- 0.5, 0.5], out_dir=no_hole_mesh_path)
 
 
     no_hole_points, no_hole_edges, no_hole_cells =\
@@ -90,16 +91,14 @@ if __name__ == '__main__':
 
     #solution, final_rep, error = solve_gauss_seidel(k1, k2, dx, dy, direction = "x", **bc)
 
-    #solution, final_rep, error  = solve_multigrid(k1, k2, dx, dy, max_level=3, max_gauss_iter=20, **bc, **zero_bc)
+    #solution, final_rep, error  = solve_multigrid(k1, k2, dx, dy, **bc, **zero_bc)
 
-    preconditioner: Multigrid_preconditioner = Multigrid_preconditioner(k1, k2, dx, dy,
-                                                                        max_level=2, max_gauss_iter=10,
-                                                                        **bc, **zero_bc)
+    preconditioner: Multigrid_preconditioner = Multigrid_preconditioner(k1, k2, dx, dy, **bc, **zero_bc)
     A = preconditioner.get_A_operator()
     M = preconditioner.get_M_operator()
     start_time = time.perf_counter()
-    solution, info = solve_bicgstab(A, M, **bc)
-    # solution, final_rep, error = solve_multigrid(k1, k2, dx, dy, max_level=3, max_gauss_iter=20, **bc, **zero_bc)
+    #solution, info = solve_bicgstab(A, M, **bc)
+    solution, final_rep, error = solve_multigrid(k1, k2, dx, dy, **bc, **zero_bc)
     end_time = time.perf_counter()
     print(f"run time: {end_time - start_time:.6f} s")
     plot_steady_state(no_hole_points, no_hole_edges, solution.reshape(-1))

@@ -4,7 +4,7 @@ from scipy.sparse.linalg import LinearOperator
 from .general_functions import *
 
 class Multigrid_preconditioner():
-    def __init__(self, k1, k2, dx, dy, max_level, max_rep=1, max_gauss_iter=1, **boundary_condition):
+    def __init__(self, k1, k2, dx, dy, max_rep=1, max_gauss_iter=1, max_level=None, **boundary_condition):
         self.k1 = k1
         self.k2 = k2
         self.dx = dx
