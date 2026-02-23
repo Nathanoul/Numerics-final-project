@@ -1,10 +1,16 @@
+from scipy.stats import triang
+
 from Mesh import *
 from Manage_data import *
 from Solver import *
-import numpy as np
-
+from Animator import *
 import time
+
 if __name__ == '__main__':
+    """-------------------------------------------------------------------------------------------------
+    ----------------------------------Project directories-----------------------------------------------
+    -------------------------------------------------------------------------------------------------"""
+
     #project_directory = "Numerics-final-project/"
     project_directory = ""
 
@@ -23,6 +29,9 @@ if __name__ == '__main__':
     hole_points_path = f"{hole_mesh_path}Points.csv"
 
 
+    """-------------------------------------------------------------------------------------------------
+    ------------------------------------------PART 1----------------------------------------------------
+    -------------------------------------------------------------------------------------------------"""
     #generate_square_mesh(256, 256, [- 0.5, 0.5], [- 0.5, 0.5], out_dir=no_hole_mesh_path)
 
 
@@ -85,20 +94,80 @@ if __name__ == '__main__':
                "zero circle bc": None}
 
 
+    """
     dx, dy = no_hole_edges["len"][0], no_hole_edges["len"][1]
     k1 = 10e-3
     k2 = 100
 
-    #solution, final_rep, error = solve_gauss_seidel(k1, k2, dx, dy, direction = "x", **bc)
+    solution, final_rep, error = solve_gauss_seidel(k1, k2, dx, dy, direction = "x", **bc)
 
-    #solution, final_rep, error  = solve_multigrid(k1, k2, dx, dy, **bc, **zero_bc)
+    solution, final_rep, error  = solve_multigrid(k1, k2, dx, dy, **bc, **zero_bc)
 
     preconditioner: Multigrid_preconditioner = Multigrid_preconditioner(k1, k2, dx, dy, **bc, **zero_bc)
     A = preconditioner.get_A_operator()
     M = preconditioner.get_M_operator()
     start_time = time.perf_counter()
-    #solution, info = solve_bicgstab(A, M, **bc)
+    solution, info = solve_bicgstab(A, M, **bc)
     solution, final_rep, error = solve_multigrid(k1, k2, dx, dy, **bc, **zero_bc)
     end_time = time.perf_counter()
     print(f"run time: {end_time - start_time:.6f} s")
     plot_steady_state(no_hole_points, no_hole_edges, solution.reshape(-1))
+    """
+
+    """-------------------------------------------------------------------------------------------------
+    -----------------------------------------------PART 2-----------------------------------------------
+    -------------------------------------------------------------------------------------------------"""
+
+    hole_points, hole_edges, hole_cells =\
+        csv_data_to_dic(hole_points_path, hole_edges_path, hole_cells_path)
+
+    #plot_mesh(no_hole_points, no_hole_edges)
+
+    bottom_bc: NeumannBC = NeumannBC(location = "bottom",
+                                         flux_func = lambda x,y: 0,
+                                         points = hole_points,
+                                         edges = hole_edges,
+                                         cells = hole_cells)
+    top_bc: NeumannBC = NeumannBC(location = "top",
+                                         flux_func = lambda x,y: 0,
+                                         points = hole_points,
+                                         edges = hole_edges,
+                                         cells = hole_cells)
+    right_bc: DirichletBC = DirichletBC(location = "right",
+                                         value_func = lambda x,y: 1 - 4 * y**2,
+                                         points = hole_points,
+                                         edges = hole_edges,
+                                         cells = hole_cells)
+    left_bc: DirichletBC = DirichletBC(location = "left",
+                                         value_func = lambda x,y: 1 - 4 * y**2,
+                                         points = hole_points,
+                                         edges = hole_edges,
+                                         cells = hole_cells)
+    circle_bc: DirichletBC = DirichletBC(location = "circle",
+                                         value_func = lambda x,y: 2,
+                                         points = hole_points,
+                                         edges = hole_edges,
+                                         cells = hole_cells)
+    bc = {"bottom bc": bottom_bc,
+          "top bc": top_bc,
+          "right bc": right_bc,
+          "left bc": left_bc,
+          "circle bc": circle_bc}
+
+    k1 = 10e-3
+    k2 = 100
+    K, rhs_bc, areas, tri_id_to_idx = build_fv_matrix(points=hole_points,
+                                                      edges=hole_edges,
+                                                      cells=hole_cells, k1=k1, k2=k2,
+                                                      **bc)
+    results = solve_unsteady_LU(K, rhs_bc, areas, hole_cells, tri_id_to_idx,
+                                dt=1e-3,
+                                report_times=(1.0, 5.0),
+                                tol_steady=1e-6,
+                                snapshots_every=50)  # every 50 steps = one frame per 0.05s
+
+    anim = FVAnimation(results, hole_points)
+    anim.save("animations/", fmt="gif", fps=20)
+    anim.preview(29)
+    anim.preview(99)
+    anim.preview(-1)

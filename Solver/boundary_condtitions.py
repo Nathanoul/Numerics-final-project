@@ -119,6 +119,27 @@ class DirichletBC():
 
         return rhs
 
+    def contains_midpoint(self, mx, my):
+        """
+        Returns True if edge midpoint (mx, my) lies on this Dirichlet boundary.
+        Uses the same geometry logic as __init__.
+        """
+        if self.location == "left":
+            return abs(mx - self.bottom_x) <= 0.5 * self.eps
+        if self.location == "right":
+            return abs(mx - self.top_x) <= 0.5 * self.eps
+        if self.location == "bottom":
+            return abs(my - self.bottom_y) <= 0.5 * self.eps
+        if self.location == "top":
+            return abs(my - self.top_y) <= 0.5 * self.eps
+        if self.location == "circle":
+            return abs((mx - self.cx) ** 2 + (my - self.cy) ** 2 - self.R ** 2) \
+                <= 0.25 * self.eps ** 2
+        return False
+
+    def get_value_at_midpoint(self, mx, my):
+        """Evaluate Dirichlet value at edge midpoint (mx, my)."""
+        return self.value_func(mx, my)
 
 
 
@@ -263,3 +284,25 @@ class NeumannBC():
                 rhs[id] = self.get_flux_at_boundary_id(id) * dx
 
         return rhs
+
+    def contains_midpoint(self, mx, my):
+        """
+        Returns True if edge midpoint (mx, my) lies on this Neumann boundary.
+        Uses the same geometry logic as __init__.
+        """
+        if self.location == "left":
+            return abs(mx - self.bottom_x) <= 0.5 * self.eps
+        if self.location == "right":
+            return abs(mx - self.top_x) <= 0.5 * self.eps
+        if self.location == "bottom":
+            return abs(my - self.bottom_y) <= 0.5 * self.eps
+        if self.location == "top":
+            return abs(my - self.top_y) <= 0.5 * self.eps
+        if self.location == "circle":
+            return abs((mx - self.cx) ** 2 + (my - self.cy) ** 2 - self.R ** 2) \
+                <= 0.25 * self.eps ** 2
+        return False
+
+    def get_flux_at_midpoint(self, mx, my):
+        """Evaluate Neumann flux at edge midpoint (mx, my)."""
+        return self.flux_func(mx, my)
