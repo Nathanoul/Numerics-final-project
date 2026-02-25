@@ -1,18 +1,15 @@
-from scipy.stats import triang
-
 from Mesh import *
 from Manage_data import *
 from Solver import *
 from Animator import *
-import time
 
 if __name__ == '__main__':
     """-------------------------------------------------------------------------------------------------
     ----------------------------------Project directories-----------------------------------------------
     -------------------------------------------------------------------------------------------------"""
 
-    #project_directory = "Numerics-final-project/"
-    project_directory = ""
+    project_directory = "Numerics-final-project/"
+    #project_directory = ""
 
     matlab_mesh_path = f"{project_directory}Mesh_data/Matlab_mesh/"
     no_hole_mesh_path = f"{project_directory}Mesh_data/Square_no_hole_mesh/"
@@ -32,6 +29,7 @@ if __name__ == '__main__':
     """-------------------------------------------------------------------------------------------------
     ------------------------------------------PART 1----------------------------------------------------
     -------------------------------------------------------------------------------------------------"""
+    """
     #generate_square_mesh(256, 256, [- 0.5, 0.5], [- 0.5, 0.5], out_dir=no_hole_mesh_path)
 
 
@@ -94,7 +92,7 @@ if __name__ == '__main__':
                "zero circle bc": None}
 
 
-    """
+    
     dx, dy = no_hole_edges["len"][0], no_hole_edges["len"][1]
     k1 = 10e-3
     k2 = 100
@@ -117,7 +115,10 @@ if __name__ == '__main__':
     """-------------------------------------------------------------------------------------------------
     -----------------------------------------------PART 2-----------------------------------------------
     -------------------------------------------------------------------------------------------------"""
-
+    """
+    Question 5
+    """
+    """
     hole_points, hole_edges, hole_cells =\
         csv_data_to_dic(hole_points_path, hole_edges_path, hole_cells_path)
 
@@ -171,3 +172,81 @@ if __name__ == '__main__':
     anim.preview(29)
     anim.preview(99)
     anim.preview(-1)
+    """
+
+    """
+    Question 6
+    """
+
+    # ------------------------------------------------------------------
+    # Mesh
+    # ------------------------------------------------------------------
+
+    generate_square_mesh(20, 20, [-0.5, 0.5], [-0.5, 0.5], out_dir=no_hole_mesh_path)
+
+    sq_points, sq_edges, sq_cells =\
+        csv_data_to_dic(no_hole_points_path, no_hole_edges_path, no_hole_cells_path)
+
+    # ------------------------------------------------------------------
+    # Outer boundary conditions  (circle handled by IBM — no circle_bc here)
+    # ------------------------------------------------------------------
+    bottom_bc_q6 = NeumannBC(location="bottom", flux_func=lambda x, y: 0,
+                             points=sq_points, edges=sq_edges, cells=sq_cells)
+    top_bc_q6 = NeumannBC(location="top", flux_func=lambda x, y: 0,
+                          points=sq_points, edges=sq_edges, cells=sq_cells)
+    right_bc_q6 = DirichletBC(location="right", value_func=lambda x, y: 1 - 4 * y ** 2,
+                              points=sq_points, edges=sq_edges, cells=sq_cells)
+    left_bc_q6 = DirichletBC(location="left", value_func=lambda x, y: 1 - 4 * y ** 2,
+                             points=sq_points, edges=sq_edges, cells=sq_cells)
+
+    bc_q6 = {
+        "bottom bc": bottom_bc_q6,
+        "top bc": top_bc_q6,
+        "right bc": right_bc_q6,
+        "left bc": left_bc_q6,
+        "circle bc": None,  # circle is imposed via IBM, not as a BC here
+    }
+
+    # ------------------------------------------------------------------
+    # FV matrix  (outer BCs only — circle interior handled by IBM)
+    # ------------------------------------------------------------------
+    k1, k2 = 1e-3, 100
+
+    K_q6, rhs_bc_q6, areas_q6, tri_id_to_idx_q6 = build_fv_matrix(
+        sq_cells, sq_edges, sq_points, k1, k2, **bc_q6
+    )
+
+    # ------------------------------------------------------------------
+    # IBM setup
+    # ------------------------------------------------------------------
+    fluid_indices, ibm_indices = classify_cells(
+        sq_cells, tri_id_to_idx_q6, cx_hole=0.0, cy_hole=0.0, R=0.2
+    )
+
+    T_ibm = build_ibm_forcing(
+        sq_cells, tri_id_to_idx_q6, ibm_indices,
+        value_func=lambda x, y: 2.0  # T = 2 on the hole boundary
+    )
+
+    # ------------------------------------------------------------------
+    # Solve
+    # ------------------------------------------------------------------
+    results_q6 = solve_ibm_schur_LU(
+        K_q6, rhs_bc_q6, areas_q6,
+        sq_cells, tri_id_to_idx_q6,
+        fluid_indices, ibm_indices, T_ibm,
+        dt=1e-3,
+        report_times=(1.0, 5.0),
+        tol_steady=1e-6,
+        snapshots_every=50,
+    )
+
+    # ------------------------------------------------------------------
+    # Visualise  (identical API to Q5)
+    # ------------------------------------------------------------------
+
+    anim_q6 = FVAnimation(results_q6, title="Schur complement")
+    anim_q6.save("animations/", filename="q6_ibm", fmt="gif", fps=20)
+    anim_q6.preview(29)
+    anim_q6.preview(99)
+    anim_q6.preview(-1)

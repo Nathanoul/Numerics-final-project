@@ -4,10 +4,10 @@ from scipy.sparse import lil_matrix
 
 def get_conductivity(x, y, k1, k2):
     """
-    Checkerboard conductivity: k1 where x·y ≥ 0, k2 where x·y < 0.
-    Matches the four-quadrant layout in Fig. 1 of the project.
+    k2 (high conductivity) in upper-right quadrant (x>=0, y>=0).
+    k1 everywhere else.  Matches Fig. 1 of the project.
     """
-    return k2 if x>=0 and y>=0 else k1
+    return k2 if x >= 0 and y >= 0 else k1
 
 
 def _harmonic_mean(a, b):
@@ -16,164 +16,115 @@ def _harmonic_mean(a, b):
 
 def _cell_area(cells, row_id, points):
     """
-    Compute triangle area from its three vertices using the cross-product formula.
-    |2A| = |(x2-x1)(y3-y1) - (y2-y1)(x3-x1)|
+    Area via cross-product (triangles) or shoelace (quads).
+    Handles both triangular (n1,n2,n3) and quad (n1,n2,n3,n4) cells.
     """
     px = points["x"]
     py = points["y"]
-    v1 = cells["n1"][row_id]
-    v2 = cells["n2"][row_id]
-    v3 = cells["n3"][row_id]
-    x1, y1 = px[v1], py[v1]
-    x2, y2 = px[v2], py[v2]
-    x3, y3 = px[v3], py[v3]
+    n1 = cells["n1"][row_id]
+    n2 = cells["n2"][row_id]
+    n3 = cells["n3"][row_id]
+    x1, y1 = px[n1], py[n1]
+    x2, y2 = px[n2], py[n2]
+    x3, y3 = px[n3], py[n3]
+
+    if "n4" in cells:
+        # Quad: shoelace formula over all four vertices
+        n4 = cells["n4"][row_id]
+        x4, y4 = px[n4], py[n4]
+        return 0.5 * abs(
+            (x1 * y2 - x2 * y1) + (x2 * y3 - x3 * y2) +
+            (x3 * y4 - x4 * y3) + (x4 * y1 - x1 * y4)
+        )
+
+    # Triangle: cross-product
     return 0.5 * abs((x2 - x1) * (y3 - y1) - (y2 - y1) * (x3 - x1))
 
 
 def build_fv_matrix(cells, edges, points, k1, k2, **boundary_conditions):
     """
-    Assemble the FV diffusion matrix K and boundary RHS vector for:
+    Assemble FV diffusion matrix K and boundary RHS for:
 
-        ∇·(k ∇T) = 0   (steady),  or  ∂T/∂t = ∇·(k ∇T)  (unsteady).
+        ∂T/∂t = ∇·(k ∇T)    (or steady: ∇·(k ∇T) = 0)
 
-    The caller is responsible for time-stepping (e.g. forming  M/dt - K
-    and solving the linear system with LU).
+    Works on both triangular (Q5 MATLAB mesh) and quad (Q6 square mesh) grids.
+    Non-orthogonality handled via Minimum Correction Method (MCM).
 
-    Non-orthogonality on the triangular mesh is handled with the
-    Minimum Correction Method (MCM, as in Lecture 2 recitation).
-
-    The sign convention for K follows FV:
-        ∑_f  Flux_{i,f} = 0   →   K T = 0  at steady state.
-    Diagonal entries K[i,i] < 0,  off-diagonal K[i,j] > 0.
+    Sign convention:  K[i,i] < 0,  K[i,j] > 0  (i≠j)
+    Steady state:     K T = -rhs_bc   →   K T + rhs_bc = 0
 
     Parameters
     ----------
-    cells : dict
-        Triangle (cell) table from csv_data_to_dic.
-        Required columns: triID, cx, cy, v1, v2, v3
-                          (nbr* and n*x/y are NOT used – we use the edge table).
-    edges : dict
-        Unique edge table from csv_data_to_dic.
-        Required columns: edgeID, triL, triR, len, mx, my, nLx, nLy
-    points : dict
-        Node table from csv_data_to_dic.  Required columns: x, y
-    k1, k2 : float
-        Thermal conductivities for the two checkerboard regions.
-    dirichlet_bcs : list of DirichletBC
-        Each must have  contains_midpoint(mx, my)  and
-        get_value_at_midpoint(mx, my)  (add these via bc_additions.py).
-    neumann_bcs : list of NeumannBC
-        Each must have  contains_midpoint(mx, my)  and
-        get_flux_at_midpoint(mx, my)  (add these via bc_additions.py).
+    cells, edges, points : dicts from csv_data_to_dic
+    k1, k2 : conductivities
+    **boundary_conditions : DirichletBC / NeumannBC instances
+        Each must expose  .type, .contains_midpoint(mx,my),
+        .get_value_at_midpoint(mx,my) / .get_flux_at_midpoint(mx,my)
 
     Returns
     -------
-    K : scipy lil_matrix, shape (N, N)
-        FV diffusion matrix (convert to csr for solving).
-    rhs_bc : np.ndarray, shape (N,)
-        Boundary contribution to the RHS coming from Dirichlet BCs.
-        For Neumann BCs the flux is already embedded in K via the
-        boundary face flux (zero flux → no contribution; non-zero flux
-        is added to rhs_bc).
-    areas : np.ndarray, shape (N,)
-        Cell areas (diagonal of mass matrix M).
-    tri_id_to_idx : dict
-        Maps triID (from the CSV) to the 0-based row/column index in K.
+    K          : lil_matrix (N×N)
+    rhs_bc     : ndarray (N,)
+    areas      : ndarray (N,)   cell areas (diagonal of mass matrix M)
+    tri_id_to_idx : dict  cellID → compact 0-based index
     """
 
     # ------------------------------------------------------------------
-    # 1. Index map:  triID → compact 0-based index
+    # 1. Index map  cellID → 0-based compact index
     # ------------------------------------------------------------------
     row_ids = list(cells["cellID"].keys())
-    tri_ids = [cells["cellID"][r] for r in row_ids]
-    tri_id_to_idx = {tid: idx for idx, tid in enumerate(tri_ids)}
-    N = len(tri_ids)
+    cell_ids = [cells["cellID"][r] for r in row_ids]
+    tri_id_to_idx = {cid: idx for idx, cid in enumerate(cell_ids)}
+    N = len(cell_ids)
 
-    # Cell centroids (indexed by compact idx)
     cx_arr = np.array([cells["cx"][r] for r in row_ids])
     cy_arr = np.array([cells["cy"][r] for r in row_ids])
-
-    # Cell areas (needed by the caller for M)
-    areas = np.array([_cell_area(cells, r, points) for r in row_ids])
+    areas  = np.array([_cell_area(cells, r, points) for r in row_ids])
 
     # ------------------------------------------------------------------
-    # 2. Allocate K and rhs_bc
+    # 2. Allocate
     # ------------------------------------------------------------------
     K      = lil_matrix((N, N), dtype=float)
     rhs_bc = np.zeros(N)
 
     # ------------------------------------------------------------------
-    # 3. Edge-based assembly loop
+    # 3. Edge loop
     # ------------------------------------------------------------------
     for r in edges["edgeID"].keys():
 
-        triL_id = int(edges["cellL"][r])
-        triR_id = int(edges["cellR"][r])   # 0 → boundary edge
-        Lf      = edges["len"][r]
-        mx      = edges["mx"] [r]
-        my      = edges["my"] [r]
-        nLx     = edges["nLx"][r]         # outward unit normal w.r.t. triL
-        nLy     = edges["nLy"][r]
+        cellL_id = int(edges["cellL"][r])
+        cellR_id = int(edges["cellR"][r])   # -1 → boundary edge
+        Lf  = edges["len"][r]
+        mx  = edges["mx"] [r]
+        my  = edges["my"] [r]
+        nLx = edges["nLx"][r]
+        nLy = edges["nLy"][r]
 
-        i    = tri_id_to_idx[triL_id]
+        i    = tri_id_to_idx[cellL_id]
         cx_i = cx_arr[i];  cy_i = cy_arr[i]
-        n_f  = np.array([nLx, nLy])       # outward from cell i
+        n_f  = np.array([nLx, nLy])            # outward from cellL
 
         # ==============================================================
         # INTERIOR EDGE
         # ==============================================================
-        if triR_id != -1:
-            j    = tri_id_to_idx[triR_id]
+        if cellR_id != -1:
+            j    = tri_id_to_idx[cellR_id]
             cx_j = cx_arr[j];  cy_j = cy_arr[j]
 
-            # Face conductivity: harmonic mean of the two cells
             ki  = get_conductivity(cx_i, cy_i, k1, k2)
             kj  = get_conductivity(cx_j, cy_j, k1, k2)
             k_f = _harmonic_mean(ki, kj)
 
-            # Centroid-to-centroid vector and its projection on n_f
-            d_ij   = np.array([cx_j - cx_i, cy_j - cy_i])
-            d_n    = np.dot(d_ij, n_f)          # scalar: |d_ij| cos θ
-
-            # ---- Minimum Correction Method (MCM) ---------------------
-            #
-            #  Decompose  n_f  =  alpha · d_ij  +  t
-            #  where  alpha = d_n / |d_ij|²   (so alpha·d_ij is the
-            #  component of n_f parallel to d_ij).
-            #
-            #  Orthogonal flux (two-point):
-            #    F_ortho = k_f · Lf · alpha · (T_j - T_i)
-            #
-            #  Non-orthogonal correction vector:
-            #    t = n_f - alpha · d_ij
-            #
-            #  The MCM approximation of  ∇T · t  at the face uses the
-            #  same two-point difference rescaled along d_ij:
-            #    ∇T · t  ≈  (T_j - T_i) / |d_ij| · (d̂ · t)
-            #
-            #  Combined coefficient:
-            #    coeff = k_f · Lf · (alpha  +  (d̂ · t) / |d_ij|)
-            #          = k_f · Lf · d_n / |d_ij|²            [1]
-            #    (the two terms combine to  d_n / |d_ij|²; see below)
-            #
-            #  Derivation of [1]:
-            #    alpha + (d̂·t)/|d_ij|
-            #    = d_n/|d_ij|²  +  (d_ij/|d_ij|)·(n_f - alpha·d_ij) / |d_ij|
-            #    = d_n/|d_ij|²  +  (d_n/|d_ij|² - alpha·|d_ij|/|d_ij|)/1
-            #    ... simplifies to  d_n / |d_ij|²
-            #
+            d_ij    = np.array([cx_j - cx_i, cy_j - cy_i])
+            d_n     = np.dot(d_ij, n_f)
             d_ij_sq = np.dot(d_ij, d_ij)
-            # d_n should be positive: centroid of triR lies in the direction
-            # of n_f (outward from triL).  A negative value signals an
-            # inconsistent normal in the mesh; abs() keeps the matrix
-            # diagonally dominant regardless.
-            coeff   = k_f * Lf * abs(d_n) / d_ij_sq
 
-            # Contribution to cell i and cell j (equal-and-opposite)
-            K[i, i] -= coeff
-            K[i, j] += coeff
-            K[j, j] -= coeff
-            K[j, i] += coeff
+            # MCM: combined coeff = k_f * Lf * d_n / |d_ij|²
+            # abs(d_n) guards against inconsistent normals in unstructured mesh
+            coeff = k_f * Lf * abs(d_n) / d_ij_sq
+
+            K[i, i] -= coeff;  K[i, j] += coeff
+            K[j, j] -= coeff;  K[j, i] += coeff
 
         # ==============================================================
         # BOUNDARY EDGE
@@ -181,37 +132,37 @@ def build_fv_matrix(cells, edges, points, k1, k2, **boundary_conditions):
         else:
             k_f = get_conductivity(cx_i, cy_i, k1, k2)
 
-            # Distance from cell centroid to face midpoint along n_f.
-            # Must be positive (midpoint lies outside the cell).
-            # If the stored normal points slightly inward on some boundary
-            # faces (can happen in body-fitted meshes), d_if becomes
-            # negative and flips all flux signs -- clamp with abs().
             m_f  = np.array([mx, my])
             c_i  = np.array([cx_i, cy_i])
+            # abs: guard against normals pointing slightly inward
             d_if = abs(np.dot(m_f - c_i, n_f))
 
-            # ---- Check Dirichlet BCs ---------------------------------
             for bc_name, bc in boundary_conditions.items():
-                if bc.type=="Dirichlet":
-                    if bc.contains_midpoint(mx, my):
-                        T_b   = bc.get_value_at_midpoint(mx, my)
-                        coeff = k_f * Lf / d_if
-                        # Flux = coeff * (T_b - T_i)
-                        #   → moves coeff * T_i to LHS (K diagonal)
-                        #   → moves coeff * T_b to RHS
-                        K[i, i] -= coeff
-                        rhs_bc[i] += coeff * T_b
-                        break
-                elif bc.type=="Neumann":
-                    if bc.contains_midpoint(mx, my):
-                        g = bc.get_flux_at_midpoint(mx, my)
-                        # Prescribed normal flux: Flux = g · Lf
-                        # Zero flux → nothing to do; non-zero → add to RHS
-                        if g != 0.0:
-                            rhs_bc[i] += g * Lf
-                        break
-
-            # Unmatched boundary edges are silently skipped
-            # (can happen for internal artefacts in some mesh generators)
+                if bc is None:
+                    continue
+                if bc.type == "Dirichlet" and bc.contains_midpoint(mx, my):
+                    T_b   = bc.get_value_at_midpoint(mx, my)
+                    coeff = k_f * Lf / d_if
+                    K[i, i]   -= coeff
+                    rhs_bc[i] += coeff * T_b
+                    break
+                elif bc.type == "Neumann" and bc.contains_midpoint(mx, my):
+                    g = bc.get_flux_at_midpoint(mx, my)
+                    # g = ∂T/∂n;  flux contribution = k_f * g * Lf
+                    if g != 0.0:
+                        rhs_bc[i] += k_f * g * Lf
+                    break
 
     return K, rhs_bc, areas, tri_id_to_idx
+
+
+def pin_reference_cell(K, rhs_bc, tri_id_to_idx, pin_tid=None, T_ref=0.0):
+    """
+    Pin one cell to T_ref.  Fixes the null-space of a pure-Neumann system.
+    Modifies K and rhs_bc in-place.
+    """
+    pin_idx = 0 if pin_tid is None else tri_id_to_idx[pin_tid]
+    K[pin_idx, :]       = 0.0
+    K[pin_idx, pin_idx] = 1.0
+    rhs_bc[pin_idx]     = T_ref
+    return K, rhs_bc
