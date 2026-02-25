@@ -94,6 +94,8 @@ def build_fv_matrix(cells, edges, points, k1, k2, **boundary_conditions):
 
         cellL_id = int(edges["cellL"][r])
         cellR_id = int(edges["cellR"][r])   # -1 → boundary edge
+        n1 = int(edges["n1"][r])
+        n2 = int(edges["n2"][r])
         Lf  = edges["len"][r]
         mx  = edges["mx"] [r]
         my  = edges["my"] [r]
@@ -140,13 +142,13 @@ def build_fv_matrix(cells, edges, points, k1, k2, **boundary_conditions):
             for bc_name, bc in boundary_conditions.items():
                 if bc is None:
                     continue
-                if bc.type == "Dirichlet" and bc.contains_midpoint(mx, my):
+                if bc.type == "Dirichlet" and bc.on_boundary(n1) and bc.on_boundary(n2):
                     T_b   = bc.get_value_at_midpoint(mx, my)
                     coeff = k_f * Lf / d_if
                     K[i, i]   -= coeff
                     rhs_bc[i] += coeff * T_b
                     break
-                elif bc.type == "Neumann" and bc.contains_midpoint(mx, my):
+                elif bc.type == "Neumann" and bc.on_boundary(n1) and bc.on_boundary(n2):
                     g = bc.get_flux_at_midpoint(mx, my)
                     # g = ∂T/∂n;  flux contribution = k_f * g * Lf
                     if g != 0.0:

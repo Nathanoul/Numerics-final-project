@@ -9,13 +9,18 @@ class FVAnimation:
     """
     Creates and saves a matplotlib animation from solve_unsteady_LU output.
 
-    Cell-centred FV data (one value per triangle) is visualised with
-    tripcolor(shading='flat'), which correctly maps one colour per triangle.
-    shading='gouraud' is NOT used here because it requires per-node values.
+    Two rendering modes:
+    - Triangulation mode (Q5): uses tri_vertices + node positions for
+      tripcolor(shading='flat').  One colour value per triangle.
+    - Scatter/centroid mode (Q6 IBM / quad mesh): used when
+      results["tri_vertices"] is None.  Plots cell centroids from
+      results["cx"] / results["cy"] as a scatter with marker size
+      scaled to the cell size.
 
     Usage
     -----
-    anim = FVAnimation(results, points)
+    anim = FVAnimation(results, points)    # Q5 triangular mesh
+    anim = FVAnimation(results, points)    # Q6 quad/IBM mesh (tri_vertices=None)
     anim.save("output_dir/")               # gif by default
     anim.save("output_dir/", fmt="mp4")
     anim.preview()                         # show steady-state frame
@@ -28,9 +33,10 @@ class FVAnimation:
         Parameters
         ----------
         results : dict
-            Output of solve_unsteady_LU.
+            Output of solve_unsteady_LU or solve_ibm_schur_LU.
         points : dict
             Node table from csv_data_to_dic  (keys 'x', 'y').
+            Used only in triangulation mode; may be None for centroid mode.
         cmap : str
             Matplotlib colormap.
         figsize : tuple
@@ -43,19 +49,29 @@ class FVAnimation:
         self.title   = title
 
         # ------------------------------------------------------------------
-        # Build matplotlib Triangulation from mesh NODE coordinates.
-        # tri_vertices (N_tri x 3) indexes into the node arrays.
+        # Determine rendering mode based on whether tri_vertices is provided.
+        # FIX: Q6 (IBM / quad mesh) returns tri_vertices=None.  Original code
+        # crashed with  np.vectorize(id_to_pos.get)(None).
+        # We fall back to centroid-scatter rendering in that case.
         # ------------------------------------------------------------------
-        node_keys = list(points["x"].keys())
-        px = np.array([points["x"][k] for k in node_keys])
-        py = np.array([points["y"][k] for k in node_keys])
+        self._use_scatter = (results.get("tri_vertices") is None)
 
-        # If node IDs are not contiguous 0-based integers, remap them.
-        id_to_pos = {k: i for i, k in enumerate(node_keys)}
-        raw_verts = results["tri_vertices"]          # shape (N_tri, 3)
-        verts = np.vectorize(id_to_pos.get)(raw_verts)
+        if not self._use_scatter:
+            # ---- Triangulation mode (Q5) --------------------------------
+            node_keys = list(points["x"].keys())
+            px = np.array([points["x"][k] for k in node_keys])
+            py = np.array([points["y"][k] for k in node_keys])
 
-        self.triang = mtri.Triangulation(px, py, verts)
+            # Remap node IDs to contiguous 0-based if needed
+            id_to_pos = {k: i for i, k in enumerate(node_keys)}
+            raw_verts = results["tri_vertices"]          # shape (N_tri, 3)
+            verts = np.vectorize(id_to_pos.get)(raw_verts)
+
+            self.triang = mtri.Triangulation(px, py, verts)
+        else:
+            # ---- Centroid-scatter mode (Q6 / IBM / quad mesh) -----------
+            self.cx = results["cx"]
+            self.cy = results["cy"]
 
         # ------------------------------------------------------------------
         # Frame list: transient snapshots  +  steady-state as final frame
@@ -76,23 +92,49 @@ class FVAnimation:
 
     # ------------------------------------------------------------------
     def _build_figure(self):
-        """Create figure, axes, and the initial tripcolor collection."""
+        """Create figure, axes, and the initial plot collection."""
         fig, ax = plt.subplots(figsize=self.figsize)
         ax.set_aspect("equal")
         ax.set_xlabel("x")
         ax.set_ylabel("y")
 
-        T0  = self.frame_data[0]
-        # shading='flat'  ->  one colour value per triangle  (cell-centred)
-        tpc = ax.tripcolor(self.triang, T0,
-                           cmap=self.cmap,
-                           vmin=self.vmin,
-                           vmax=self.vmax)
+        T0 = self.frame_data[0]
+
+        if not self._use_scatter:
+            # Triangulation: one colour per triangle (cell-centred)
+            tpc = ax.tripcolor(self.triang, T0,
+                               cmap=self.cmap,
+                               vmin=self.vmin,
+                               vmax=self.vmax)
+        else:
+            # Centroid scatter: each cell is a square marker
+            # Marker size is scaled so cells visually tile the domain
+            x_span = self.cx.max() - self.cx.min()
+            n_approx = int(np.sqrt(len(self.cx)))
+            pt_size  = (fig.get_size_inches()[0] * fig.dpi / n_approx) ** 2 * 0.9
+            tpc = ax.scatter(self.cx, self.cy, c=T0,
+                             cmap=self.cmap,
+                             vmin=self.vmin, vmax=self.vmax,
+                             s=pt_size, marker="s",
+                             linewidths=0)
+
         fig.colorbar(tpc, ax=ax, label="Temperature")
         ttl = ax.set_title(
             f"{self.title}\n{self._fmt_time(self.frame_times[0])}")
         fig.tight_layout()
         return fig, ax, tpc, ttl
+
+    # ------------------------------------------------------------------
+    def _update_frame(self, tpc, ttl, fi):
+        """Update the plot collection for frame fi."""
+        T = self.frame_data[fi]
+        if not self._use_scatter:
+            tpc.set_array(T)
+        else:
+            tpc.set_array(T)
+        ttl.set_text(
+            f"{self.title}\n{self._fmt_time(self.frame_times[fi])}")
+        return tpc, ttl
 
     # ------------------------------------------------------------------
     def save(self, output_dir, filename="heat_animation",
@@ -119,11 +161,7 @@ class FVAnimation:
         n_frames = len(self.frame_data)
 
         def _update(fi):
-            # tripcolor flat: update the facecolor array
-            tpc.set_array(self.frame_data[fi])
-            ttl.set_text(
-                f"{self.title}\n{self._fmt_time(self.frame_times[fi])}")
-            return tpc, ttl
+            return self._update_frame(tpc, ttl, fi)
 
         anim = FuncAnimation(fig, _update,
                              frames=n_frames,
@@ -147,9 +185,6 @@ class FVAnimation:
         """
         fig, ax, tpc, ttl = self._build_figure()
         fi = frame_idx % len(self.frame_data)
-        tpc.set_array(self.frame_data[fi])
-        ttl.set_text(
-            f"{self.title}\n{self._fmt_time(self.frame_times[fi])}")
+        self._update_frame(tpc, ttl, fi)
         plt.tight_layout()
         plt.show()
-

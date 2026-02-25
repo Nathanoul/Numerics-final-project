@@ -37,7 +37,7 @@ def solve_ibm_schur_LU(K, rhs_bc, areas, cells, tri_id_to_idx,
 
     Steady state is obtained separately via:
 
-        K_FF T_F = K_FI T_ibm - rhs_bc_F
+        K_FF T_F = -K_FI T_ibm - rhs_bc_F
 
     using a second LU factorisation of K_FF (also done once).
 
@@ -110,13 +110,19 @@ def solve_ibm_schur_LU(K, rhs_bc, areas, cells, tri_id_to_idx,
     K_FI = K_csr[f_idx, :][:, i_idx]
 
     # ------------------------------------------------------------------
-    # 3. Steady state:  K_FF T_F = K_FI T_ibm - rhs_bc_F
-    #    (from  K T + rhs_bc = 0  →  K_FF T_F = -rhs_bc_F - K_FI T_ibm
-    #     BUT sign: K_FI has positive off-diag entries, so source from
-    #     IBM cells enters as  +K_FI T_ibm on the RHS when moved across)
+    # 3. Steady state:  K_FF T_F = -K_FI T_ibm - rhs_bc_F
+    #
+    #    From the full system  K T + rhs_bc = 0, split into blocks:
+    #        K_FF T_F + K_FI T_ibm + rhs_bc_F = 0
+    #    =>  K_FF T_F = -K_FI T_ibm - rhs_bc_F
+    #
+    #    BUG FIX: original code had  +K_FI T_ibm  (wrong sign),
+    #    which gave a steady state with the IBM contribution subtracted
+    #    instead of added, producing incorrect (and possibly negative)
+    #    temperature values near the circle.
     # ------------------------------------------------------------------
     print("Computing steady-state via Schur / LU(K_FF) ...")
-    rhs_steady_F = K_FI.dot(T_ibm) - rhs_bc[f_idx]
+    rhs_steady_F = -K_FI.dot(T_ibm) - rhs_bc[f_idx]   # FIX: was +K_FI.dot(T_ibm)
     lu_K_FF      = splu(K_FF.tocsc())
     T_steady_F   = lu_K_FF.solve(rhs_steady_F)
 
@@ -191,7 +197,8 @@ def solve_ibm_schur_LU(K, rhs_bc, areas, cells, tri_id_to_idx,
                   f"(step {step},  max|dT_F| = {dT_inf:.2e})")
             break
 
-        if step % 100 == 0:
+        # FIX: print every 1000 steps (was 100), consistent with Q5 solve
+        if step % 1000 == 0:
             print(f"  step {step:7d},  t = {t:.4f},  max|dT_F| = {dT_inf:.3e}")
 
     for t_rep in report_set[next_rep_idx:]:

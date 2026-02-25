@@ -4,9 +4,9 @@ from Solver import *
 from Animator import *
 
 if __name__ == '__main__':
-    """-------------------------------------------------------------------------------------------------
-    ----------------------------------Project directories-----------------------------------------------
-    -------------------------------------------------------------------------------------------------"""
+    #-------------------------------------------------------------------------------------------------
+    #----------------------------------Project directories--------------------------------------------
+    #-------------------------------------------------------------------------------------------------
 
     project_directory = "Numerics-final-project/"
     #project_directory = ""
@@ -25,10 +25,12 @@ if __name__ == '__main__':
     hole_cells_path = f"{hole_mesh_path}Cells.csv"
     hole_points_path = f"{hole_mesh_path}Points.csv"
 
+    animations_path = f"{project_directory}/animations"
 
-    """-------------------------------------------------------------------------------------------------
-    ------------------------------------------PART 1----------------------------------------------------
-    -------------------------------------------------------------------------------------------------"""
+
+    #-------------------------------------------------------------------------------------------------
+    #------------------------------------------PART 1-------------------------------------------------
+    #-------------------------------------------------------------------------------------------------
     """
     #generate_square_mesh(256, 256, [- 0.5, 0.5], [- 0.5, 0.5], out_dir=no_hole_mesh_path)
 
@@ -112,12 +114,11 @@ if __name__ == '__main__':
     plot_steady_state(no_hole_points, no_hole_edges, solution.reshape(-1))
     """
 
-    """-------------------------------------------------------------------------------------------------
-    -----------------------------------------------PART 2-----------------------------------------------
-    -------------------------------------------------------------------------------------------------"""
-    """
-    Question 5
-    """
+    #-------------------------------------------------------------------------------------------------
+    #-----------------------------------------------PART 2--------------------------------------------
+    #-------------------------------------------------------------------------------------------------
+
+    #-----------------------------------------Question 5-----------------------------------------
     """
     hole_points, hole_edges, hole_cells =\
         csv_data_to_dic(hole_points_path, hole_edges_path, hole_cells_path)
@@ -155,7 +156,7 @@ if __name__ == '__main__':
           "left bc": left_bc,
           "circle bc": circle_bc}
 
-    k1 = 10e-3
+    k1 = 1e-3
     k2 = 100
     K, rhs_bc, areas, tri_id_to_idx = build_fv_matrix(points=hole_points,
                                                       edges=hole_edges,
@@ -168,21 +169,21 @@ if __name__ == '__main__':
                                 snapshots_every=50)  # every 50 steps = one frame per 0.05s
 
     anim = FVAnimation(results, hole_points)
-    anim.save("animations/", fmt="gif", fps=20)
-    anim.preview(29)
+    #anim.save(animations_path, filename="q5_tri_mesh", fmt="gif", fps=20)
+    anim.preview(19)
     anim.preview(99)
     anim.preview(-1)
     """
 
-    """
-    Question 6
-    """
+
+    #-----------------------------------------Question 6-----------------------------------------
+
 
     # ------------------------------------------------------------------
     # Mesh
     # ------------------------------------------------------------------
 
-    generate_square_mesh(20, 20, [-0.5, 0.5], [-0.5, 0.5], out_dir=no_hole_mesh_path)
+    #generate_square_mesh(200, 200, [-0.5, 0.5], [-0.5, 0.5], out_dir=no_hole_mesh_path)
 
     sq_points, sq_edges, sq_cells =\
         csv_data_to_dic(no_hole_points_path, no_hole_edges_path, no_hole_cells_path)
@@ -245,8 +246,9 @@ if __name__ == '__main__':
     # Visualise  (identical API to Q5)
     # ------------------------------------------------------------------
 
-    anim_q6 = FVAnimation(results_q6, title="Schur complement")
-    anim_q6.save("animations/", filename="q6_ibm", fmt="gif", fps=20)
-    anim_q6.preview(29)
+    anim_q6 = FVAnimation(results_q6, sq_points, title="Schur complement")
+    anim_q6.save(animations_path, filename="q6_ibm", fmt="gif", fps=20)
+    anim_q6.preview(19)
     anim_q6.preview(99)
     anim_q6.preview(-1)
+

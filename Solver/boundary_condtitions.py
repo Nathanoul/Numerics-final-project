@@ -4,7 +4,7 @@ from .general_functions import *
 class DirichletBC():
 
     def __init__(self, location, value_func, points, edges, cells,
-                 eps=10**-5, cx=0.0, cy=0.0, R=0.2):
+                 eps=10**-4, cx=0.0, cy=0.0, R=0.2):
         self.type = "Dirichlet"
         self.location = location
         self.value_func = value_func
@@ -103,7 +103,7 @@ class DirichletBC():
         return self.values_at_boundary[id]
 
     def on_boundary(self, point_id):
-        return any(self.boundary_points_ids == point_id)
+        return point_id in self.boundary_points_ids
 
 
     def apply_AT(self, AT, T, get_ij):
@@ -119,24 +119,6 @@ class DirichletBC():
 
         return rhs
 
-    def contains_midpoint(self, mx, my):
-        """
-        Returns True if edge midpoint (mx, my) lies on this Dirichlet boundary.
-        Uses the same geometry logic as __init__.
-        """
-        if self.location == "left":
-            return abs(mx - self.bottom_x) <= 0.5 * self.eps
-        if self.location == "right":
-            return abs(mx - self.top_x) <= 0.5 * self.eps
-        if self.location == "bottom":
-            return abs(my - self.bottom_y) <= 0.5 * self.eps
-        if self.location == "top":
-            return abs(my - self.top_y) <= 0.5 * self.eps
-        if self.location == "circle":
-            return abs((mx - self.cx) ** 2 + (my - self.cy) ** 2 - self.R ** 2) \
-                <= 0.25 * self.eps ** 2
-        return False
-
     def get_value_at_midpoint(self, mx, my):
         """Evaluate Dirichlet value at edge midpoint (mx, my)."""
         return self.value_func(mx, my)
@@ -149,7 +131,7 @@ class DirichletBC():
 class NeumannBC():
 
     def __init__(self, location, flux_func, points, edges, cells,
-                 eps=10 ** -5, cx=0.0, cy=0.0, R=0.2):
+                 eps=10 ** -4, cx=0.0, cy=0.0, R=0.2):
         self.type = "Neumann"
         self.location = location
         self.flux_func = flux_func
@@ -253,7 +235,7 @@ class NeumannBC():
 
 
     def on_boundary(self, point_id):
-        return any(self.boundary_points_ids == point_id)
+        return point_id in self.boundary_points_ids
 
 
     def apply_AT(self, AT, T, get_ij):
@@ -284,24 +266,6 @@ class NeumannBC():
                 rhs[id] = self.get_flux_at_boundary_id(id) * dx
 
         return rhs
-
-    def contains_midpoint(self, mx, my):
-        """
-        Returns True if edge midpoint (mx, my) lies on this Neumann boundary.
-        Uses the same geometry logic as __init__.
-        """
-        if self.location == "left":
-            return abs(mx - self.bottom_x) <= 0.5 * self.eps
-        if self.location == "right":
-            return abs(mx - self.top_x) <= 0.5 * self.eps
-        if self.location == "bottom":
-            return abs(my - self.bottom_y) <= 0.5 * self.eps
-        if self.location == "top":
-            return abs(my - self.top_y) <= 0.5 * self.eps
-        if self.location == "circle":
-            return abs((mx - self.cx) ** 2 + (my - self.cy) ** 2 - self.R ** 2) \
-                <= 0.25 * self.eps ** 2
-        return False
 
     def get_flux_at_midpoint(self, mx, my):
         """Evaluate Neumann flux at edge midpoint (mx, my)."""
