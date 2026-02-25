@@ -6,3 +6,4 @@ env/
 Modules/Solver/__pycache__/
 Modules/Data_manager/__pycache__/
 Modules/Mesh/__pycache__/
+Modules/__pycache__/
