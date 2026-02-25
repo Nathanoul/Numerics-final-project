@@ -1,6 +1,6 @@
-from Mesh import *
-from Manage_data import *
-from Solver import *
+from Modules.Mesh import *
+from Modules.Data_manager import *
+from Modules.Solver import *
 
 import time
 if __name__ == '__main__':

@@ -1,15 +1,12 @@
-from Mesh import *
-from Manage_data import *
-from Solver import *
-from Animator import *
+from Modules import *
 
 if __name__ == '__main__':
     #-------------------------------------------------------------------------------------------------
     #----------------------------------Project directories--------------------------------------------
     #-------------------------------------------------------------------------------------------------
 
-    project_directory = "Numerics-final-project/"
-    #project_directory = ""
+    #project_directory = "Numerics-final-project/"
+    project_directory = ""
 
     matlab_mesh_path = f"{project_directory}Mesh_data/Matlab_mesh/"
     no_hole_mesh_path = f"{project_directory}Mesh_data/Square_no_hole_mesh/"
@@ -25,7 +22,7 @@ if __name__ == '__main__':
     hole_cells_path = f"{hole_mesh_path}Cells.csv"
     hole_points_path = f"{hole_mesh_path}Points.csv"
 
-    animations_path = f"{project_directory}/animations"
+    animations_path = f"{project_directory}animations/"
 
 
     #-------------------------------------------------------------------------------------------------
@@ -106,10 +103,9 @@ if __name__ == '__main__':
     preconditioner: Multigrid_preconditioner = Multigrid_preconditioner(k1, k2, dx, dy, **bc, **zero_bc)
     A = preconditioner.get_A_operator()
     M = preconditioner.get_M_operator()
-    start_time = time.perf_counter()
+
     solution, info = solve_bicgstab(A, M, **bc)
-    solution, final_rep, error = solve_multigrid(k1, k2, dx, dy, **bc, **zero_bc)
-    end_time = time.perf_counter()
+
     print(f"run time: {end_time - start_time:.6f} s")
     plot_steady_state(no_hole_points, no_hole_edges, solution.reshape(-1))
     """
@@ -131,22 +127,22 @@ if __name__ == '__main__':
                                          edges = hole_edges,
                                          cells = hole_cells)
     top_bc: NeumannBC = NeumannBC(location = "top",
-                                         flux_func = lambda x,y: 0,
+                                         flux_func = lambda x,y: -1,
                                          points = hole_points,
                                          edges = hole_edges,
                                          cells = hole_cells)
     right_bc: DirichletBC = DirichletBC(location = "right",
-                                         value_func = lambda x,y: 1 - 4 * y**2,
+                                         value_func = lambda x,y: 0,
                                          points = hole_points,
                                          edges = hole_edges,
                                          cells = hole_cells)
-    left_bc: DirichletBC = DirichletBC(location = "left",
-                                         value_func = lambda x,y: 1 - 4 * y**2,
+    left_bc: NeumannBC = NeumannBC(location = "left",
+                                         flux_func = lambda x,y: 0,
                                          points = hole_points,
                                          edges = hole_edges,
                                          cells = hole_cells)
-    circle_bc: DirichletBC = DirichletBC(location = "circle",
-                                         value_func = lambda x,y: 2,
+    circle_bc: NeumannBC = NeumannBC(location = "circle",
+                                         flux_func = lambda x,y: -1 / (2 * 3.1415 * 0.2),
                                          points = hole_points,
                                          edges = hole_edges,
                                          cells = hole_cells)
