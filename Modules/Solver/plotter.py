@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.tri as mtri
 
-def plot_steady_state(points, edges, solution, cmap="inferno", show_mesh=False, triag=None):
+def plot_steady_state(points, edges, solution, cmap="inferno", show_mesh=False, triag=None, gird_shape="100x100"):
     """
     Plots heat equation solution on an unstructured mesh.
 
@@ -46,7 +46,9 @@ def plot_steady_state(points, edges, solution, cmap="inferno", show_mesh=False, 
 
     plt.xlabel("x")
     plt.ylabel("y")
-    plt.title("Heat Equation Solution")
+    plt.title("Heat Equation Solution on Grid " + gird_shape)
     plt.axis("equal")
     plt.tight_layout()
-    plt.show()
+    # plt.show()
+    plt.savefig(f"solver_img_log/steady_state_{gird_shape}.png")
+    plt.close()

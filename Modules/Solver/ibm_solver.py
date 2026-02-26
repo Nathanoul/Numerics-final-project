@@ -213,3 +213,4 @@ def solve_ibm_schur_LU(K, rhs_bc, areas, cells, tri_id_to_idx,
         "tri_vertices": None,       # FVAnimation uses cx/cy; not needed
         "dt":           dt,
     }
+

@@ -1,5 +1,5 @@
 import numpy as np
-
+from scipy.spatial import cKDTree
 
 def classify_cells(cells, tri_id_to_idx, cx_hole=0.0, cy_hole=0.0, R=0.2):
     """
@@ -87,3 +87,4 @@ def build_ibm_forcing(cells, tri_id_to_idx, ibm_indices, value_func=lambda x, y:
         for idx in ibm_indices
     ])
     return T_ibm
+
