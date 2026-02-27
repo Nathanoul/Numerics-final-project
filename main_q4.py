@@ -84,6 +84,7 @@ def mesh2bc():
             "zero circle bc": None}
     return no_hole_points, no_hole_edges, no_hole_cells, bc, zero_bc
     
+
 def question_1(gird_shape):
     generate_square_mesh(gird_shape, gird_shape, [- 0.5, 0.5], [- 0.5, 0.5], out_dir=no_hole_mesh_path)
     no_hole_points, no_hole_edges, no_hole_cells, bc, zero_bc = mesh2bc()
@@ -94,6 +95,7 @@ def question_1(gird_shape):
     solution, final_rep, error = solve_gauss_seidel(k1, k2, dx, dy, direction = "x", **bc)
     plot_steady_state(no_hole_points, no_hole_edges, solution.reshape(-1),gird_shape=f"{gird_shape}x{gird_shape}-gauss_seidel")
     print(f"final_rep: {final_rep}, error: {error:.6f}")
+
 
 def question_2(gird_shape):
     generate_square_mesh(gird_shape, gird_shape, [- 0.5, 0.5], [- 0.5, 0.5], out_dir=no_hole_mesh_path)
@@ -137,6 +139,7 @@ def question_3(gird_shape):
 
     print(f"bicg of {gird_shape} - run time: {end_time - start_time:.6f} s")
     plot_steady_state(no_hole_points, no_hole_edges, solution_bicg.reshape(-1),gird_shape=f"{gird_shape}x{gird_shape}_bicgSolver")
+
 
 def question_4(gird_shape):
     multigrid_runtime_log_list = []
